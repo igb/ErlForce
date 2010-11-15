@@ -1,13 +1,17 @@
 -module(sfdc).
--export([login/3, login/4]).
+-export([login/3, login/4, update/2, update/3]).
 
 
 
 
 %% get login string 
 
+
+get_default_endpoint()->
+    "https://www.salesforce.com/services/Soap/u/18.0".
+
 login (Username, Password, SecurityToken)->
-    login(Username, Password, SecurityToken, "https://www.salesforce.com/services/Soap/c/18.0").
+    login(Username, Password, SecurityToken, get_default_endpoint()).
 
 login (Username, Password, SecurityToken, Endpoint)->
     LoginXml=create_login_request(Username, lists:append([Password, SecurityToken])),
@@ -41,18 +45,38 @@ extract_successful_login_info(Body)->
     
     
 create_login_request (Username, Password)->
-    lists:append([create_xml_declaration(), create_soap_envelope(create_soap_body(create_login_block(Username, Password)))]).
+    lists:append([create_xml_declaration(), create_soap_envelope([], create_soap_body(create_login_block(Username, Password)))]).
 
 create_session_header(SessionId)->
     lists:append(["<SessionHeader xmlns=\"urn:partner.soap.sforce.com\"><sessionId>", SessionId, "</sessionId></SessionHeader>"]).
 
 
 
-create_xml_declaration () ->
-"<?xml version=\"1.0\" encoding=\"UTF-8\"?>".
+update(SObject, SessionId)->
+    update(SObject, SessionId, get_default_endpoint()).
+
+update(SObject, SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    UpdateBody=create_update(SObject),
+    UpdateSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(UpdateBody)),
+    {ok, {{HttpVersion, ResponseCode, ResponseCodeDescription}, ResponseHeaders, ResponseBody}}=http:request(post, {Endpoint, [{"SOAPAction:", "\"\""}], "text/xml", UpdateSoapMessage}, [],[]).
+
+create_update(SObject)->
+    lists:append(["<m:update xmlns:m=\"urn:partner.soap.sforce.com\" xmlns:sobj=\"urn:sobject.partner.soap.sforce.com\"><m:sObjects>", get_xml_for_sobject(SObject,[]), "</m:sObjects></m:update>"]).
+
+get_xml_for_sobject([H|T],Xml)-> 
+    {Name,Type,Value}=H,
+    get_xml_for_sobject(T, lists:append([Xml, "<sobj:", Name, " xsi:type=\"", lists:append(["xsd:",Type]), "\">", Value, "</sobj:", Name, ">"]));
+get_xml_for_sobject([],Xml) ->
+    Xml.
+    
 
 
 %% XML support
+
+create_xml_declaration () ->
+"<?xml version=\"1.0\" encoding=\"UTF-8\"?>".
+
 
 parse_xml(Message)->
     {Xml, _}=xmerl_scan:string(Message),
@@ -69,22 +93,19 @@ is_namespace_prefixed_element(SimplifiedXml, UnqualifiedName) ->
 
 
 
-
-
 %% SOAP Support
 
-create_soap_envelope (SoapBody) ->
-    lists:append(["<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">", SoapBody, "</soap:Envelope>"]). 
+create_soap_envelope (SoapHeader, SoapBody) ->
+    lists:append(["<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">", SoapHeader, SoapBody, "</soap:Envelope>"]). 
 
 create_soap_header(Xml)->
     lists:append(["<soap:Header>",Xml,"</soap:Header>"]).
     
-
 create_soap_body(Xml) ->
     lists:append(["<soap:Body>", Xml, "</soap:Body>"]).
 
 create_login_block (Username, Password) ->
-    lists:append(["<login xmlns=\"urn:enterprise.soap.sforce.com\"><username>", Username, "</username><password>", Password, "</password></login>"]).
+    lists:append(["<login xmlns=\"urn:partner.soap.sforce.com\"><username>", Username, "</username><password>", Password, "</password></login>"]).
 
 get_body_from_envelope(EnvelopeXml)->
     {_, _, ChildElements}=EnvelopeXml,
