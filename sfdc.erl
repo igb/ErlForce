@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3]).
+-export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3]).
 
 
 
@@ -106,12 +106,39 @@ soql_query_all(QueryString, SessionId, Endpoint)->
     SoapResponse=send_soap_message(QuerySoapMessage, Endpoint),
     get_query_results_from_soap_response(SoapResponse).
 
+soql_query_more(QueryLocator, SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    QueryBody=lists:append(["<queryMore xmlns=\"urn:partner.soap.sforce.com\"><queryLocator>", QueryLocator, "</queryLocator></queryMore>"]),
+    QuerySoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(QueryBody)),
+    SoapResponse=send_soap_message(QuerySoapMessage, Endpoint),
+    get_query_results_from_soap_response(SoapResponse).
 
+
+get_all_results_for_query(QueryString, SessionId, Endpoint)->
+    {IsDone, QueryLocator, _, Results}=soql_query(QueryString, SessionId, Endpoint),
+    case IsDone of
+	"true"->
+	    Results;
+	"false"->
+	    lists:append(Results, get_more_results_for_query(QueryLocator, SessionId, Endpoint))
+    end.
+
+get_more_results_for_query(QueryLocator, SessionId, Endpoint)->
+    {IsDone, QueryLocator, _, Results}=soql_query_more(QueryLocator, SessionId, Endpoint),
+    case IsDone of
+	"true"->
+	    Results;
+	"false"->
+	    lists:append(Results, get_more_results_for_query(QueryLocator, SessionId, Endpoint))
+    end.
+									      
+
+    
 
 get_query_results_from_soap_response(SoapResponse)->
     Xml=parse_xml(SoapResponse),
     BodyXml=get_body_from_envelope(Xml),
-    {QueryResponseType,_,[{result,_,QueryResponse}]}=get_body_content(BodyXml),
+    {_,_,[{result,_,QueryResponse}]}=get_body_content(BodyXml),
     [{done,_,[IsDone]}, {queryLocator,_,QueryLocator}|TheRest]=QueryResponse,
     {SizeInt, SobjectRecords}=get_query_results_from_record_set(TheRest),
     {IsDone, QueryLocator, SizeInt, SobjectRecords}.
@@ -124,7 +151,7 @@ get_query_results_from_record_set([H|T],Results)->
     
     case H of 
 	{records,_,_}->
-	    {records,[{'xsi:type',RecordType}],Records}=H,
+	    {records,[{'xsi:type',_}],Records}=H,
 	    RecordsSoFar=lists:append(Results, [convert_xml_to_sobject(Records, [])]),
 	    get_query_results_from_record_set(T,RecordsSoFar);
 	{size,_,_}->
@@ -170,11 +197,7 @@ get_value_from_sobject_xml(XmlValue)->
 	_ -> convert_xml_to_sobject(XmlValue,[])
     end.
 	    
-convert_xml_records_to_sobjects([H|T], Sobjects)->
-    SobjectsSoFar=lists:append(Sobjects, convert_xml_to_sobject(H,[])),
-    convert_xml_records_to_sobjects(T, SobjectsSoFar);
-convert_xml_records_to_sobjects(_, Sobjects)->
-    Sobjects.
+
     
 
 %% XML support
