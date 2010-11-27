@@ -13,7 +13,7 @@ xml_to_sobject_conversion_test()->
 happy_path_functional_test()->
     application:start(inets),
     application:start(ssl),
-    LoginInfo=sfdc:login("eerla@force.hccp.org", "password", "Xtsso4fWvK6uczst6SNtBEUK4"),
+    LoginInfo=sfdc:login("eerla@force.hccp.org", "erlang3000", "tsso4fWvK6uczst6SNtBEUK4"),
     [{sessionId,SessionId}, {serverUrl, Endpoint}]=LoginInfo,
     ExpectedUserInfo=get_user_info_sobject(),
     ExpectedUserInfo=sfdc:get_user_info(SessionId, Endpoint),
@@ -32,8 +32,15 @@ happy_path_functional_test()->
     SecondSize=4,
     SecondSize=length(SecondResults),
     [UserA|_]=SecondResults,
-    11=length(UserA).
-   
+    11=length(UserA),
+    ExpectedQueryAllResults=sfdc:soql_query_all("select Id, Username, LastName, FirstName, Name, CompanyName, Division, Department, Title from User", SessionId, Endpoint),
+   {AllIsDone, AllQueryLocator, AllSize, AllResults}=ExpectedQueryAllResults,
+    AllIsDone="true",
+    AllQueryLocator=[],
+    AllSecondSize=4,
+    AllSecondSize=length(SecondResults),
+    [UserAll|_]=AllResults,
+    11=length(UserAll).
     
 
 get_user_info_sobject()->

@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3]).
+-export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3]).
 
 
 
@@ -98,10 +98,20 @@ soql_query(QueryString, SessionId, Endpoint)->
     SoapResponse=send_soap_message(QuerySoapMessage, Endpoint),
     get_query_results_from_soap_response(SoapResponse).
 
+
+soql_query_all(QueryString, SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    QueryBody=lists:append(["<queryAll xmlns=\"urn:partner.soap.sforce.com\"><queryString>", QueryString, "</queryString></queryAll>"]),
+    QuerySoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(QueryBody)),
+    SoapResponse=send_soap_message(QuerySoapMessage, Endpoint),
+    get_query_results_from_soap_response(SoapResponse).
+
+
+
 get_query_results_from_soap_response(SoapResponse)->
     Xml=parse_xml(SoapResponse),
     BodyXml=get_body_from_envelope(Xml),
-    {queryResponse,_,[{result,_,QueryResponse}]}=get_body_content(BodyXml),
+    {QueryResponseType,_,[{result,_,QueryResponse}]}=get_body_content(BodyXml),
     [{done,_,[IsDone]}, {queryLocator,_,QueryLocator}|TheRest]=QueryResponse,
     {SizeInt, SobjectRecords}=get_query_results_from_record_set(TheRest),
     {IsDone, QueryLocator, SizeInt, SobjectRecords}.
@@ -125,16 +135,6 @@ get_query_results_from_record_set([H|T],Results)->
 get_query_results_from_record_set([],Results)->
     Results.
     
-
-%%{records,[{'xsi:type',RecordType}],Records},{size,_,[Size]}]=QueryResponse,
-  %  {SizeInt,_}=string:to_integer(Size),
-  %  case SizeInt of 
-%	0->SobjectRecords=[];
-%	1->SobjectRecords=[convert_xml_to_sobject(Records, [])];
-%	_->SobjectRecords=convert_xml_records_to_sobjects(Records, [])
-%    end,
-
-  %  
 
 
 
