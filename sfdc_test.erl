@@ -13,11 +13,28 @@ xml_to_sobject_conversion_test()->
 happy_path_functional_test()->
     application:start(inets),
     application:start(ssl),
-    LoginInfo=sfdc:login("eerla@force.hccp.org", "erlang3000", "tsso4fWvK6uczst6SNtBEUK4"),
+    LoginInfo=sfdc:login("eerla@force.hccp.org", "password", "Xtsso4fWvK6uczst6SNtBEUK4"),
     [{sessionId,SessionId}, {serverUrl, Endpoint}]=LoginInfo,
     ExpectedUserInfo=get_user_info_sobject(),
-    ExpectedUserInfo=sfdc:get_user_info(SessionId, Endpoint).
-
+    ExpectedUserInfo=sfdc:get_user_info(SessionId, Endpoint),
+    ExpectedQueryResults=sfdc:soql_query("select Id, FolderId, IsDeleted, Name, DeveloperName, NamespacePrefix, ContentType, Type, IsPublic, BodyLength, Url, Description, Keywords, IsInternalUseOnly, AuthorId, CreatedDate, CreatedById, LastModifiedDate, LastModifiedById, SystemModstamp, IsBodySearchable from Document", SessionId, Endpoint),
+   {IsDone, QueryLocator, Size, Results}=ExpectedQueryResults,
+    IsDone="true",
+    QueryLocator=[],
+    Size=1,
+    Size=length(Results),
+    [Sobject]=Results,
+    23=length(Sobject),
+    SecondExpectedQueryResults=sfdc:soql_query("select Id, Username, LastName, FirstName, Name, CompanyName, Division, Department, Title from User", SessionId, Endpoint),
+   {SecondIsDone, SecondQueryLocator, SecondSize, SecondResults}=SecondExpectedQueryResults,
+    SecondIsDone="true",
+    SecondQueryLocator=[],
+    SecondSize=4,
+    SecondSize=length(SecondResults),
+    [UserA|_]=SecondResults,
+    11=length(UserA).
+   
+    
 
 get_user_info_sobject()->
  [{"accessibilityMode","string","false"},

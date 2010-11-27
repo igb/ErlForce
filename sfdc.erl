@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/2, update/3]).
+-export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3]).
 
 
 
@@ -9,6 +9,10 @@
 
 get_default_endpoint()->
     "https://www.salesforce.com/services/Soap/u/18.0".
+
+
+
+%% Login
 
 login (Username, Password, SecurityToken)->
     login(Username, Password, SecurityToken, get_default_endpoint()).
@@ -51,6 +55,7 @@ create_session_header(SessionId)->
     lists:append(["<SessionHeader xmlns=\"urn:partner.soap.sforce.com\"><sessionId>", SessionId, "</sessionId></SessionHeader>"]).
 
 
+%% OPERATION: Update
 
 update(SObject, SessionId)->
     update(SObject, SessionId, get_default_endpoint()).
@@ -59,18 +64,118 @@ update(SObject, SessionId, Endpoint)->
     SessionHeader=create_session_header(SessionId),
     UpdateBody=create_update(SObject),
     UpdateSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(UpdateBody)),
-    {ok, {{HttpVersion, ResponseCode, ResponseCodeDescription}, ResponseHeaders, ResponseBody}}=http:request(post, {Endpoint, [{"SOAPAction:", "\"\""}], "text/xml", UpdateSoapMessage}, [],[]).
+    send_soap_message(UpdateSoapMessage, Endpoint).
 
 create_update(SObject)->
     lists:append(["<m:update xmlns:m=\"urn:partner.soap.sforce.com\" xmlns:sobj=\"urn:sobject.partner.soap.sforce.com\"><m:sObjects>", get_xml_for_sobject(SObject,[]), "</m:sObjects></m:update>"]).
+
+
+% OPERATION: getUserInfo
+get_user_info(SessionId)->
+    get_user_info(SessionId, get_default_endpoint()).
+
+get_user_info(SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    GetUserInfoBody="<getUserInfo xmlns=\"urn:partner.soap.sforce.com\"/>",
+    GetUserInfoSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(GetUserInfoBody)),
+    SoapResponse=send_soap_message(GetUserInfoSoapMessage, Endpoint),
+    get_user_info_sobject_from_soap_response(SoapResponse).
+
+get_user_info_sobject_from_soap_response(SoapResponse)->
+    Xml=parse_xml(SoapResponse),
+    BodyXml=get_body_from_envelope(Xml),
+    {getUserInfoResponse,_,[{result,_,UserInfoXml}]}=get_body_content(BodyXml),
+    convert_xml_to_sobject(UserInfoXml,[]).
+
+
+
+%OPERATION: Query
+
+soql_query(QueryString, SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    QueryBody=lists:append(["<query xmlns=\"urn:partner.soap.sforce.com\"><queryString>", QueryString, "</queryString></query>"]),
+    QuerySoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(QueryBody)),
+    SoapResponse=send_soap_message(QuerySoapMessage, Endpoint),
+    get_query_results_from_soap_response(SoapResponse).
+
+get_query_results_from_soap_response(SoapResponse)->
+    Xml=parse_xml(SoapResponse),
+    BodyXml=get_body_from_envelope(Xml),
+    {queryResponse,_,[{result,_,QueryResponse}]}=get_body_content(BodyXml),
+    [{done,_,[IsDone]}, {queryLocator,_,QueryLocator}|TheRest]=QueryResponse,
+    {SizeInt, SobjectRecords}=get_query_results_from_record_set(TheRest),
+    {IsDone, QueryLocator, SizeInt, SobjectRecords}.
+
+
+get_query_results_from_record_set(RecordSet)->
+    get_query_results_from_record_set(RecordSet,[]).
+
+get_query_results_from_record_set([H|T],Results)->
+    
+    case H of 
+	{records,_,_}->
+	    {records,[{'xsi:type',RecordType}],Records}=H,
+	    RecordsSoFar=lists:append(Results, [convert_xml_to_sobject(Records, [])]),
+	    get_query_results_from_record_set(T,RecordsSoFar);
+	{size,_,_}->
+	    {_,_,[Size]}=H,
+	    {SizeInt,_}=string:to_integer(Size),
+	    {SizeInt, Results}
+    end;
+get_query_results_from_record_set([],Results)->
+    Results.
+    
+
+%%{records,[{'xsi:type',RecordType}],Records},{size,_,[Size]}]=QueryResponse,
+  %  {SizeInt,_}=string:to_integer(Size),
+  %  case SizeInt of 
+%	0->SobjectRecords=[];
+%	1->SobjectRecords=[convert_xml_to_sobject(Records, [])];
+%	_->SobjectRecords=convert_xml_records_to_sobjects(Records, [])
+%    end,
+
+  %  
+
+
+
+
+%SObject
 
 get_xml_for_sobject([H|T],Xml)-> 
     {Name,Type,Value}=H,
     get_xml_for_sobject(T, lists:append([Xml, "<sobj:", Name, " xsi:type=\"", lists:append(["xsd:",Type]), "\">", Value, "</sobj:", Name, ">"]));
 get_xml_for_sobject([],Xml) ->
     Xml.
-    
 
+convert_xml_to_sobject([H|T], Sobject)->
+    {Name,_,Values}=H,
+    MySobject=lists:append(Sobject,[{clean_prefix(atom_to_list(Name)), "string", get_value_from_sobject_xml(Values)}]),
+    convert_xml_to_sobject(T, MySobject);
+convert_xml_to_sobject([], Sobject)->    
+   Sobject. 
+
+clean_prefix(Name)->
+    PrefixEnd=string:str(Name, ":"),
+    case PrefixEnd of 
+	0->Name;
+	_-> string:substr(Name,1+PrefixEnd)
+    end.
+
+
+
+get_value_from_sobject_xml(XmlValue)->
+    case length(XmlValue) of
+	1 -> [Value]=XmlValue,Value;
+	0 ->[];	     
+	_ -> convert_xml_to_sobject(XmlValue,[])
+    end.
+	    
+convert_xml_records_to_sobjects([H|T], Sobjects)->
+    SobjectsSoFar=lists:append(Sobjects, convert_xml_to_sobject(H,[])),
+    convert_xml_records_to_sobjects(T, SobjectsSoFar);
+convert_xml_records_to_sobjects(_, Sobjects)->
+    Sobjects.
+    
 
 %% XML support
 
@@ -138,6 +243,9 @@ is_soap(SimplifiedXml) ->
    is_namespace_prefixed_element(SimplifiedXml,"Envelope").
 
 
+send_soap_message(SoapMessage, Endpoint)->
+    {ok, {{_, _, _}, _, ResponseBody}}=http:request(post, {Endpoint, [{"SOAPAction:", "\"\""}], "text/xml", SoapMessage}, [],[]),
+    ResponseBody.
 
 
 
