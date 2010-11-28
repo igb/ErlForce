@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3]).
+-export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3]).
 
 
 
@@ -162,6 +162,19 @@ get_query_results_from_record_set([H|T],Results)->
 get_query_results_from_record_set([],Results)->
     Results.
     
+
+
+
+%OPERATION: Create
+
+
+create(Sobject, SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    CreateBody=  lists:append(["<m:create xmlns:m=\"urn:partner.soap.sforce.com\" xmlns:sobj=\"urn:sobject.partner.soap.sforce.com\"><m:sObjects>", get_xml_for_sobject(Sobject,[]), "</m:sObjects></m:create>"]),
+    CreateSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(CreateBody)),
+    SoapResponse=send_soap_message(CreateSoapMessage, Endpoint),
+    get_query_results_from_soap_response(SoapResponse).
+
 
 
 
