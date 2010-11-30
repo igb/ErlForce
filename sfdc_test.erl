@@ -1,4 +1,6 @@
 -module(sfdc_test).
+-export([setup_initial_objects/3,login/0]).
+
 -include_lib("eunit/include/eunit.hrl").
 
 login()->
@@ -13,8 +15,51 @@ xml_to_sobject_conversion_test()->
     ExpectedUserInfo=get_user_info_sobject(),
     ExpectedUserInfo=sfdc:get_user_info_sobject_from_soap_response(UserInfoSoap).
     
+add_note_functional_test()->
+    CandidateId="a06A0000007fDIG",
+    OwnerId="005A0000001KH08",
+    Note=[ {"type", "string", "Note"},
+	  {"ParentId", "string", CandidateId},
+	  {"Title", "string", "My Test"},
+	  {"Body", "string", "test content"},
+	  {"OwnerId", "string", OwnerId}
+	 ],
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
+    sfdc:create(Note, SessionId, Endpoint),
+    sfdc:logout(SessionId, Endpoint).
+
+delete_notes_functional_test()->
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
+    {IsDone, _, Size, Records}=sfdc:soql_query("select Id from Note where ParentId='a06A0000007fDIGIA2'", SessionId, Endpoint),
+    F=fun(Record)->
+	      [_,{"Id",_,Id},_]=Record,
+	      [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
+	      sfdc:delete(Id, SessionId, Endpoint),	      
+	      sfdc:logout(SessionId, Endpoint)
+      end,
+    Ids=lists:map(F, Records).
+    
+    
+setup_initial_objects(Count, SessionId, Endpoint)->
+    CandidateId="a06A0000007fDIG",
+    OwnerId="005A0000001KH08",
+    Note=[ {"type", "string", "Note"},
+	  {"ParentId", "string", CandidateId},
+	  {"Title", "string", lists:append("My Test", integer_to_list(Count))},
+	  {"Body", "string", lists:append("test content", integer_to_list(Count))},
+	  {"OwnerId", "string", OwnerId}
+	 ],
+    sfdc:create(Note, SessionId, Endpoint),
+    case Count of
+	1 -> ok;
+	_ -> setup_initial_objects(Count-1, SessionId, Endpoint)
+    end.
+    
     
 
+
+login_functional_test()->
+     [{sessionId,SessionId}, {serverUrl, Endpoint}]=login().
 
 happy_path_functional_test()->
     [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
@@ -25,7 +70,8 @@ happy_path_functional_test()->
     SecondExpectedQueryResults=sfdc:soql_query("select Id, Username, LastName, FirstName, Name, CompanyName, Division, Department, Title from User", SessionId, Endpoint),
     validate_query(SecondExpectedQueryResults, "true", 4, 11),
     ExpectedQueryAllResults=sfdc:soql_query_all("select Id, Username, LastName, FirstName, Name, CompanyName, Division, Department, Title from User", SessionId, Endpoint),
-    validate_query(ExpectedQueryAllResults, "true", 4, 11).
+    validate_query(ExpectedQueryAllResults, "true", 4, 11),
+    x=sfdc:get_server_timestamp(SessionId, Endpoint).
 
 
 validate_query(Results, ExpectedIsDone, ExpectedSize, ExpectedNumberOfAttributesPerRecord)->

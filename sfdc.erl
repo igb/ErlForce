@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3]).
+-export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2]).
 
 
 
@@ -12,7 +12,7 @@ get_default_endpoint()->
 
 
 
-%% Login
+%% OPERATION: Login
 
 login (Username, Password, SecurityToken)->
     login(Username, Password, SecurityToken, get_default_endpoint()).
@@ -173,10 +173,67 @@ create(Sobject, SessionId, Endpoint)->
     CreateBody=  lists:append(["<m:create xmlns:m=\"urn:partner.soap.sforce.com\" xmlns:sobj=\"urn:sobject.partner.soap.sforce.com\"><m:sObjects>", get_xml_for_sobject(Sobject,[]), "</m:sObjects></m:create>"]),
     CreateSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(CreateBody)),
     SoapResponse=send_soap_message(CreateSoapMessage, Endpoint),
-    get_query_results_from_soap_response(SoapResponse).
+    get_create_results_from_soap_response(SoapResponse).
+    
+get_create_results_from_soap_response(SoapResponse)->
+    Xml=parse_xml(SoapResponse),
+    BodyXml=get_body_from_envelope(Xml),
+    {_,_,[{result,_,CreateResponse}]}=get_body_content(BodyXml),
+    [{id,[],[ObjectId]},{success,[],["true"]}]=CreateResponse,
+    {ok,ObjectId}.					    
 
 
+%OPERATION: Delete
 
+delete(Id, SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    DeleteBody=  lists:append(["<delete xmlns=\"urn:partner.soap.sforce.com\"><ids>", Id, "</ids></delete>"]),
+    DeleteSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(DeleteBody)),
+    SoapResponse=send_soap_message(DeleteSoapMessage, Endpoint),
+    get_create_results_from_soap_response(SoapResponse).
+
+
+%OPERATION: getServerTimeStamp
+
+get_server_timestamp(SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    ServerTimestampBody="<getServerTimestamp xmlns=\"urn:partner.soap.sforce.com\"/>",
+    ServerTimestampSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(ServerTimestampBody)),
+    SoapResponse=send_soap_message(ServerTimestampSoapMessage, Endpoint),
+    Xml=parse_xml(SoapResponse),
+    BodyXml=get_body_from_envelope(Xml),
+    {getServerTimestampResponse,[],[
+				    {result,[],[
+						{timestamp,[],[TimeStamp]}
+					       ]}
+				   ]
+}=get_body_content(BodyXml),
+    
+   [Year, Month, Day, Hour, Minutes, Seconds,_]=string:tokens(TimeStamp, "-T:."),
+    {YearInt,_}=string:to_integer(Year),
+    {MonthInt,_}=string:to_integer(Month),
+    {DayInt,_}=string:to_integer(Day),
+    {HourInt,_}=string:to_integer(Hour),
+    {MinutesInt,_}=string:to_integer(Minutes),
+    {SecondsInt,_}=string:to_integer(Seconds),
+    {{YearInt, MonthInt,DayInt},{HourInt, MinutesInt, SecondsInt}}.
+
+
+%OPERATION: logout
+
+logout(SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    LogoutBody="<logout xmlns=\"urn:partner.soap.sforce.com\"/>",
+    LogoutSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(LogoutBody)),
+    SoapResponse=send_soap_message(LogoutSoapMessage, Endpoint),
+    Xml=parse_xml(SoapResponse),
+    BodyXml=get_body_from_envelope(Xml),
+    LogoutResponse=get_body_content(BodyXml),
+    case LogoutResponse of
+	{logoutResponse,[],[]}->
+	    ok;
+	_ ->err
+    end.
 
 
 %SObject
