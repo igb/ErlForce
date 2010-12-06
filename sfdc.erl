@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2]).
+-export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3]).
 
 
 
@@ -180,7 +180,8 @@ get_create_results_from_soap_response(SoapResponse)->
     BodyXml=get_body_from_envelope(Xml),
     {_,_,[{result,_,CreateResponse}]}=get_body_content(BodyXml),
     [{id,[],[ObjectId]},{success,[],["true"]}]=CreateResponse,
-    {ok,ObjectId}.					    
+    {ok,ObjectId}.
+
 
 
 %OPERATION: Delete
@@ -193,6 +194,26 @@ delete(Id, SessionId, Endpoint)->
     get_create_results_from_soap_response(SoapResponse).
 
 
+
+%OPERATION: getDeleted
+
+get_deleted(ObjectType, StartDate, EndDate, SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    GetDeletedBody=lists:append(["<getDeleted xmlns=\"urn:partner.soap.sforce.com\"><sObjectType>", ObjectType,"</sObjectType><startDate>",erlang_date_to_xsd_date_time(StartDate),"</startDate><endDate>",erlang_date_to_xsd_date_time(EndDate),"</endDate></getDeleted>"]),
+    GetDeletedSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(GetDeletedBody)),
+    SoapResponse=send_soap_message(GetDeletedSoapMessage, Endpoint),
+    get_deleted_results_from_soap_response(SoapResponse).
+
+get_deleted_results_from_soap_response(SoapResponse)->
+    Xml=parse_xml(SoapResponse),
+    BodyXml=get_body_from_envelope(Xml),
+    {_,_,[{result,_,DeletedResponse}]}=get_body_content(BodyXml),
+    [{earliestDateAvailable,[],[EarliestDateAvailable]},
+     {latestDateCovered,[],[LatestDateAvailable]}]=DeletedResponse,
+    [{"earliestDateAvailable", xsd_datetime_to_erlang_datetime(EarliestDateAvailable)}, {"latestDateCovered", xsd_datetime_to_erlang_datetime(LatestDateAvailable)}].
+
+
+
 %OPERATION: getServerTimeStamp
 
 get_server_timestamp(SessionId, Endpoint)->
@@ -202,21 +223,17 @@ get_server_timestamp(SessionId, Endpoint)->
     SoapResponse=send_soap_message(ServerTimestampSoapMessage, Endpoint),
     Xml=parse_xml(SoapResponse),
     BodyXml=get_body_from_envelope(Xml),
-    {getServerTimestampResponse,[],[
-				    {result,[],[
-						{timestamp,[],[TimeStamp]}
-					       ]}
-				   ]
-}=get_body_content(BodyXml),
+    {getServerTimestampResponse,[],[{result,[],[{timestamp,[],[TimeStamp]}]}]}=get_body_content(BodyXml),
+    xsd_datetime_to_erlang_datetime(TimeStamp).
+
+
+%OPERATION: describeSOBject
+describe_sobject(Type,SessionId, Endpoint)->
+ 
+    DescribeSobjectBody=lists:append(["<describeSObject xmlns=\"urn:partner.soap.sforce.com\">", "<sObjectType>", Type, "</sObjectType></describeSObject>"]),
+    Response=send_sforce_soap_message(DescribeSobjectBody, SessionId, Endpoint),
+    get_value_from_sobject_xml(get_results_from_message(Response)).
     
-   [Year, Month, Day, Hour, Minutes, Seconds,_]=string:tokens(TimeStamp, "-T:."),
-    {YearInt,_}=string:to_integer(Year),
-    {MonthInt,_}=string:to_integer(Month),
-    {DayInt,_}=string:to_integer(Day),
-    {HourInt,_}=string:to_integer(Hour),
-    {MinutesInt,_}=string:to_integer(Minutes),
-    {SecondsInt,_}=string:to_integer(Seconds),
-    {{YearInt, MonthInt,DayInt},{HourInt, MinutesInt, SecondsInt}}.
 
 
 %OPERATION: logout
@@ -289,7 +306,24 @@ is_namespace_prefixed_element(SimplifiedXml, UnqualifiedName) ->
 	false->err
     end.
 
+erlang_date_to_xsd_date_time(ErlangDate) ->
+      {{YearInt, MonthInt,DayInt},{HourInt, MinutesInt, SecondsInt}}=ErlangDate,
+    lists:append([integer_to_list(YearInt), "-", integer_pad(MonthInt), "-", integer_pad(DayInt), "T", integer_pad(HourInt), ":", integer_pad(MinutesInt), ":", integer_pad(SecondsInt), "Z"]).
+    
+xsd_datetime_to_erlang_datetime(XsdDateString)->
+    [Year, Month, Day, Hour, Minutes, Seconds,_]=string:tokens(XsdDateString, "-T:."),
+    {YearInt,_}=string:to_integer(Year),
+    {MonthInt,_}=string:to_integer(Month),
+    {DayInt,_}=string:to_integer(Day),
+    {HourInt,_}=string:to_integer(Hour),
+    {MinutesInt,_}=string:to_integer(Minutes),
+    {SecondsInt,_}=string:to_integer(Seconds),
+    {{YearInt, MonthInt,DayInt},{HourInt, MinutesInt, SecondsInt}}.
 
+
+integer_pad(Integer)->
+    [IntegerString, _]=io_lib:format("~2..0B~n", [Integer]),
+    lists:flatten(IntegerString).
 
 %% SOAP Support
 
@@ -341,5 +375,20 @@ send_soap_message(SoapMessage, Endpoint)->
     ResponseBody.
 
 
+% SForce Soap Utilities
 
+send_sforce_soap_message(SforceXml, SessionId, Endpoint)->
+    SessionHeader=create_session_header(SessionId),
+    SoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(SforceXml)),
+    SoapResponse=send_soap_message(SoapMessage, Endpoint),
+    Xml=parse_xml(SoapResponse),
+    BodyXml=get_body_from_envelope(Xml),
+    case is_fault(BodyXml) of
+        ok -> {err, get_fault(BodyXml)};
+        _ -> get_body_content(BodyXml)
+    end.
+ 
 
+get_results_from_message(Body)->
+    {_,[],[{result,[],Result}]}=Body,
+    Result.
