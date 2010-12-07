@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2]).
+-export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2]).
 
 
 
@@ -253,6 +253,30 @@ get_describe_sobjects_message([], Message)->
 describe_global(SessionId, Endpoint)->
     get_value_from_sobject_xml(send_sforce_soap_message("<describeGlobal xmlns=\"urn:partner.soap.sforce.com\"/>", SessionId, Endpoint)).
 
+
+%OPERATION: describeDataCategoryGroups
+describe_data_category_groups(Type, SessionId, Endpoint)->
+    DescribeDataCategoryGroupsMessage=lists:append(["<describeDataCategoryGroups xmlns=\"urn:partner.soap.sforce.com\"><sObjectType>", Type, "</sObjectType></describeDataCategoryGroups>"]),
+    send_sforce_soap_message(DescribeDataCategoryGroupsMessage, SessionId, Endpoint).
+
+%OPERATION: describetabs
+describe_tabs(SessionId, Endpoint)->
+    DescribeTabsMessage="<describeTabs xmlns=\"urn:partner.soap.sforce.com\"/>",
+    [{label,[],[Label]},{logoUrl,[],[LogoUrl]},{namespace,[],NameSpace},{selected,[],[Selected]}|Tabs]=send_sforce_soap_message(DescribeTabsMessage, SessionId, Endpoint),
+    FlattenedTabs=flatten_tabs(Tabs),
+    [{"Label", Label},{"LogoUrl", LogoUrl},{"NameSpace",NameSpace},{"Selected", Selected},{"Tabs",FlattenedTabs}].
+flatten_tabs(Tabs)->
+    InnerFlatten=fun(TabData)->
+			 {Name,_,Value}=TabData,
+			 NameString=atom_to_list(Name),
+			 case Value of
+			     []->{NameString,""}; 
+			     _ ->ValueString=lists:flatten(Value),{NameString,ValueString}
+			 end
+		 end,
+    OuterFlatten=fun(Tab)->{tabs,[],TabData}=Tab,lists:map(InnerFlatten,TabData) end,
+    lists:map(OuterFlatten, Tabs).
+	      
 
 %OPERATION: logout
 
