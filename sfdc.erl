@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3]).
+-export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2]).
 
 
 
@@ -217,23 +217,41 @@ get_deleted_results_from_soap_response(SoapResponse)->
 %OPERATION: getServerTimeStamp
 
 get_server_timestamp(SessionId, Endpoint)->
-    SessionHeader=create_session_header(SessionId),
+   
     ServerTimestampBody="<getServerTimestamp xmlns=\"urn:partner.soap.sforce.com\"/>",
-    ServerTimestampSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(ServerTimestampBody)),
-    SoapResponse=send_soap_message(ServerTimestampSoapMessage, Endpoint),
-    Xml=parse_xml(SoapResponse),
-    BodyXml=get_body_from_envelope(Xml),
-    {getServerTimestampResponse,[],[{result,[],[{timestamp,[],[TimeStamp]}]}]}=get_body_content(BodyXml),
+    [{timestamp,[],[TimeStamp]}]=send_sforce_soap_message(ServerTimestampBody, SessionId, Endpoint),
     xsd_datetime_to_erlang_datetime(TimeStamp).
 
 
 %OPERATION: describeSOBject
-describe_sobject(Type,SessionId, Endpoint)->
- 
+describe_sobject(Type,SessionId, Endpoint)-> 
     DescribeSobjectBody=lists:append(["<describeSObject xmlns=\"urn:partner.soap.sforce.com\">", "<sObjectType>", Type, "</sObjectType></describeSObject>"]),
     Response=send_sforce_soap_message(DescribeSobjectBody, SessionId, Endpoint),
-    get_value_from_sobject_xml(get_results_from_message(Response)).
+    get_value_from_sobject_xml(Response).
+
+%OPERATION: describeSOBjects
+describe_sobjects(Types,SessionId, Endpoint)-> 
+    DescribeSobjectBody=lists:append(["<describeSObjects xmlns=\"urn:partner.soap.sforce.com\">", get_describe_sobjects_message(Types,[]),"</describeSObjects>"]),
+    Response=send_sforce_soap_message(DescribeSobjectBody, SessionId, Endpoint),
+    case Response of 
+	{err,_}->Response;
+	_-> case length(Response) of 
+		1-> get_value_from_sobject_xml(Response);
+		_ ->F=fun(SobjectDescription)->get_value_from_sobject_xml(SobjectDescription) end,lists:map(F, Response)
+	    end
+		    
+    end.
+
     
+get_describe_sobjects_message([Type|Rest], Message)->
+    get_describe_sobjects_message(Rest,lists:append([Message,"<sObjectType>", Type, "</sObjectType>"]));
+get_describe_sobjects_message([], Message)->
+    Message.
+
+
+%OPERATION: describeGlobal
+describe_global(SessionId, Endpoint)->
+    get_value_from_sobject_xml(send_sforce_soap_message("<describeGlobal xmlns=\"urn:partner.soap.sforce.com\"/>", SessionId, Endpoint)).
 
 
 %OPERATION: logout
@@ -347,14 +365,17 @@ get_body_from_envelope(EnvelopeXml)->
 	 err -> err
 	end.
 		
-get_fault(BodyXml)->   
+get_fault(BodyXml)->
     FaultElement=get_body_content(BodyXml),
     {_,_,FaultChildElements}=FaultElement,
-    [FaultCode, FaultString, Detail]=FaultChildElements,
+    [FaultCode, FaultString|Detail]=FaultChildElements,
     {faultcode,_,[FaultCodeValue]}=FaultCode,
     {faultstring,_,[FaultMessage]}=FaultString,
-    {detail,_,[FaultDetail]}=Detail,
-    [{faultcode, FaultCodeValue},{faultstring, FaultMessage},{detail,FaultDetail}].
+    case Detail of
+	[]->[{faultcode, FaultCodeValue},{faultstring, FaultMessage}];%,{detail,FaultDetail}]
+	{detail,_,[FaultDetail]} -> [{faultcode, FaultCodeValue},{faultstring, FaultMessage},{detail,FaultDetail}]
+    end.
+    
 
 get_body_content(BodyXml)->
     {_,_,ChildElements}=BodyXml,
@@ -384,11 +405,18 @@ send_sforce_soap_message(SforceXml, SessionId, Endpoint)->
     Xml=parse_xml(SoapResponse),
     BodyXml=get_body_from_envelope(Xml),
     case is_fault(BodyXml) of
-        ok -> {err, get_fault(BodyXml)};
-        _ -> get_body_content(BodyXml)
+        ok -> [_, {faultstring,ErrorMessage}|_]=get_fault(BodyXml), {err, ErrorMessage};
+        _ -> get_results_from_message(get_body_content(BodyXml))
     end.
  
 
 get_results_from_message(Body)->
-    {_,[],[{result,[],Result}]}=Body,
-    Result.
+    {_,[],Results}=Body,
+    case length(Results) of 
+	1->[{_,_,Result}]=Results,Result;
+	_ -> F=fun({_,_,Result}) -> Result end,
+	     lists:map(F,Results)
+    end.
+	   
+
+    
