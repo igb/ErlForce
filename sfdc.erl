@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2]).
+-export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4]).
 
 
 
@@ -277,6 +277,24 @@ flatten_tabs(Tabs)->
     OuterFlatten=fun(Tab)->{tabs,[],TabData}=Tab,lists:map(InnerFlatten,TabData) end,
     lists:map(OuterFlatten, Tabs).
 	      
+
+%OPERATION: describeSoftphoneLayout
+describe_softphone_layout(SessionId, Endpoint)->
+    DescribeSoftphoneLayoutMessage="<describeSoftphoneLayout xmlns=\"urn:partner.soap.sforce.com\"/>",
+    send_sforce_soap_message(DescribeSoftphoneLayoutMessage, SessionId, Endpoint).
+
+
+%OPERATION: describeLayout
+describe_layout(Type, SessionId, Endpoint)->
+    DescribeLayoutMessage=lists:append(["<describeLayout xmlns=\"urn:partner.soap.sforce.com\"><sObjectType>", Type, "</sObjectType></describeLayout>"]),
+    send_sforce_soap_message(DescribeLayoutMessage, SessionId, Endpoint).
+
+%OPERATION: describeLayout
+describe_layout(Type, RecordTypeIds,SessionId, Endpoint)->
+    DescribeLayoutMessage=lists:append(["<describeLayout xmlns=\"urn:partner.soap.sforce.com\"><sObjectType>", Type, "</sObjectType><recordTypeIds/></describeLayout>"]),
+    send_sforce_soap_message(DescribeLayoutMessage, SessionId, Endpoint).
+
+
 
 %OPERATION: logout
 
