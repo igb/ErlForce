@@ -1,11 +1,8 @@
 -module(sfdc).
--export([login/3, login/4, update/2, update/3, get_user_info/1, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4]).
-
-
+-export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4]).
 
 
 %% get login string 
-
 
 get_default_endpoint()->
     "https://www.salesforce.com/services/Soap/u/18.0".
@@ -57,8 +54,6 @@ create_session_header(SessionId)->
 
 %% OPERATION: Update
 
-update(SObject, SessionId)->
-    update(SObject, SessionId, get_default_endpoint()).
 
 update(SObject, SessionId, Endpoint)->
     SessionHeader=create_session_header(SessionId),
@@ -71,9 +66,6 @@ create_update(SObject)->
 
 
 % OPERATION: getUserInfo
-get_user_info(SessionId)->
-    get_user_info(SessionId, get_default_endpoint()).
-
 get_user_info(SessionId, Endpoint)->
     SessionHeader=create_session_header(SessionId),
     GetUserInfoBody="<getUserInfo xmlns=\"urn:partner.soap.sforce.com\"/>",
@@ -295,6 +287,20 @@ describe_layout(Type, RecordTypeIds,SessionId, Endpoint)->
     send_sforce_soap_message(DescribeLayoutMessage, SessionId, Endpoint).
 
 
+%OPERATION: upsert
+
+upsert(ExternalIdFieldName, Sobjects,SessionId, Endpoint)->
+    UpsertMessage=lists:append(["<upsert xmlns=\"urn:partner.soap.sforce.com\"><externalIDFieldName>", ExternalIdFieldName,"</externalIDFieldName>",get_xml_for_sobjects(Sobjects, []),"</upsert>"]),
+    Results=send_sforce_soap_message(UpsertMessage, SessionId, Endpoint),
+    
+    case Results of 
+	[{_,_,_}|_]->
+	    convert_xml_to_tuples(Results);
+	_ ->ConvertUpsertResults=fun(Result)->convert_xml_to_tuples(Result) end,lists:map(ConvertUpsertResults,Results)
+    end.
+			  
+    
+
 
 %OPERATION: logout
 
@@ -315,11 +321,24 @@ logout(SessionId, Endpoint)->
 
 %SObject
 
+get_xml_for_sobjects(Sobjects)-> 
+    get_xml_for_sobjects(Sobjects,[]). 
+
+get_xml_for_sobjects([H|T],Xml)-> 
+    MyXml=lists:append([Xml,"<sObjects xmlns:sobj=\"urn:sobject.partner.soap.sforce.com\">",get_xml_for_sobject(H), "</sObjects>"]), 
+    get_xml_for_sobjects(T, MyXml);
+get_xml_for_sobjects([],Xml) ->
+    Xml.
+
+get_xml_for_sobject(Sobject)->
+ get_xml_for_sobject(Sobject,[]).
+ 
 get_xml_for_sobject([H|T],Xml)-> 
     {Name,Type,Value}=H,
     get_xml_for_sobject(T, lists:append([Xml, "<sobj:", Name, " xsi:type=\"", lists:append(["xsd:",Type]), "\">", Value, "</sobj:", Name, ">"]));
 get_xml_for_sobject([],Xml) ->
     Xml.
+
 
 convert_xml_to_sobject([H|T], Sobject)->
     {Name,_,Values}=H,
@@ -343,9 +362,24 @@ get_value_from_sobject_xml(XmlValue)->
 	0 ->[];	     
 	_ -> convert_xml_to_sobject(XmlValue,[])
     end.
-	    
 
+
+get_tuples_from_xml(XmlValue)->
+    case length(XmlValue) of
+	1 -> [Value]=XmlValue,Value;
+	0 ->[];	     
+	_ -> convert_xml_to_tuples(XmlValue,[])
+    end.
+	    
+convert_xml_to_tuples(XmlValue)->
+    convert_xml_to_tuples(XmlValue,[]).
     
+convert_xml_to_tuples([H|T], Xml)->
+    {Name,_,Values}=H,
+    MyTuples=lists:append(Xml,[{clean_prefix(atom_to_list(Name)),  get_tuples_from_xml(Values)}]),
+    convert_xml_to_tuples(T, MyTuples);
+convert_xml_to_tuples([], Xml)->    
+   Xml.    
 
 %% XML support
 
@@ -444,6 +478,7 @@ send_sforce_soap_message(SforceXml, SessionId, Endpoint)->
     SessionHeader=create_session_header(SessionId),
     SoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(SforceXml)),
     SoapResponse=send_soap_message(SoapMessage, Endpoint),
+   %% io:fwrite("message ~s ~n", [SoapResponse]),
     Xml=parse_xml(SoapResponse),
     BodyXml=get_body_from_envelope(Xml),
     case is_fault(BodyXml) of
