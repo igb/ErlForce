@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4]).
+-export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5]).
 
 
 %% get login string 
@@ -299,7 +299,58 @@ upsert(ExternalIdFieldName, Sobjects,SessionId, Endpoint)->
 	_ ->ConvertUpsertResults=fun(Result)->convert_xml_to_tuples(Result) end,lists:map(ConvertUpsertResults,Results)
     end.
 			  
+%OPERATION: merge
+
+merge(MasterRecordType, MasterRecordId, IdsToMerge, SessionId, Endpoint)->    
+    MergeMessage=lists:append(["<merge xmlns=\"urn:partner.soap.sforce.com\" xmlns:sobj=\"urn:sobject.partner.soap.sforce.com\"><request><masterRecord><sobj:type>", MasterRecordType, "</sobj:type><sobj:Id>",MasterRecordId,"</sobj:Id></masterRecord>", get_ids_to_merge_xml(IdsToMerge), "</request></merge>"]),
+    Results=send_sforce_soap_message(MergeMessage, SessionId, Endpoint),
+    case Results of 
+	[{errors,_,_}|_]->get_merge_error(Results);
+	_->get_merge_results(Results)
+    end.
+
+get_merge_error(Results)->
+    [{errors,_, [{message,_,[Message]}, _]}|  _]=Results,
+    {err, Message}.
+
+get_ids_to_merge_xml(IdsToMerge)->
+    get_ids_to_merge_xml(IdsToMerge,[]).
+
+get_ids_to_merge_xml([H|T], Ids)->
+    MyIds=lists:append([Ids, "<recordToMergeIds>", H, "</recordToMergeIds>"]),
+    get_ids_to_merge_xml(T, MyIds);
+get_ids_to_merge_xml([],Ids) ->
+    Ids.
+
+get_merge_results(Results)->    
+    MergedId=get_property(Results,id),
+    MergedRecords=get_atom_records(Results, mergedRecordIds),
+    RelatedUpdatedRecords=get_atom_records(Results, updatedRelatedIds),
+    Succeded=get_property(Results,success),
     
+    [{"success", Succeded},{"id", MergedId},{"mergedRecords", MergedRecords},{"updatedRecords", RelatedUpdatedRecords}].
+
+get_property([H|T], Property)->
+    case H of
+	{Property,_,[Value]}->
+	    Value;
+	_ ->get_property(T, Property)
+    end;
+get_property([], _)->
+    err.
+
+get_atom_records(Results, Label)->
+    get_atom_records(Results,[],Label).
+
+get_atom_records([H|T], Records, Label)->
+    case H of
+	{Label,_,[Id]}->
+	    get_atom_records(T, lists:append(Records, [Id]), Label);
+	_ -> get_atom_records(T, Records, Label)
+    end;
+get_atom_records([], Records, _) ->
+    Records.
+					
 
 
 %OPERATION: logout
