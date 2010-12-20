@@ -1,5 +1,5 @@
 -module(sfdc).
--export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5]).
+-export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3]).
 
 
 %% get login string 
@@ -370,6 +370,30 @@ logout(SessionId, Endpoint)->
     end.
 
 
+%OPERATION: search
+
+search(Search, SessionId, Endpoint)->
+    SearchMessage=lists:append(["<search xmlns=\"urn:partner.soap.sforce.com\"><searchString>", Search, "</searchString></search>"]),
+    Results=send_sforce_soap_message(SearchMessage, SessionId, Endpoint),
+    Results.
+
+
+
+%OPERATION: setPassword
+
+set_password(UserId, Password, SessionId, Endpoint)->
+    SetPasswordMessage=lists:append(["<setPassword xmlns=\"urn:partner.soap.sforce.com\"><userId>", UserId ,"</userId><password>", Password, "</password></setPassword>"]),
+    Results=send_sforce_soap_message(SetPasswordMessage, SessionId, Endpoint).
+
+
+
+%OPERATION: resetPassword
+
+reset_password(UserId, SessionId, Endpoint)->
+    ResetPasswordMessage=lists:append(["<resetPassword xmlns=\"urn:partner.soap.sforce.com\"><userId>", UserId ,"</userId></resetPassword>"]),
+    Results=send_sforce_soap_message(ResetPasswordMessage, SessionId, Endpoint).
+
+
 %SObject
 
 get_xml_for_sobjects(Sobjects)-> 
@@ -498,11 +522,21 @@ get_fault(BodyXml)->
     [FaultCode, FaultString|Detail]=FaultChildElements,
     {faultcode,_,[FaultCodeValue]}=FaultCode,
     {faultstring,_,[FaultMessage]}=FaultString,
+    io:fwrite("message ~s ~n", ["here..."]),
     case Detail of
 	[]->[{faultcode, FaultCodeValue},{faultstring, FaultMessage}];%,{detail,FaultDetail}]
-	{detail,_,[FaultDetail]} -> [{faultcode, FaultCodeValue},{faultstring, FaultMessage},{detail,FaultDetail}]
+	{detail,_,[FaultDetail]} -> extract_fault_detail(FaultDetail);
+	[{detail,[],[FaultDetail]}] -> extract_fault_detail(FaultDetail)
     end.
     
+extract_fault_detail(FaultDetail)->
+    {'sf:InvalidIdFault',
+     [{'xsi:type',"sf:InvalidIdFault"}],
+     [{'sf:exceptionCode',[],[ExceptionCode]},
+      {'sf:exceptionMessage',[],
+       [ExceptionMessage]}]}=FaultDetail,
+        io:fwrite("message ~s ~n", ["here2..."]),
+    [{errorCode, ExceptionCode}, {errorMessage, ExceptionMessage}].
 
 get_body_content(BodyXml)->
     {_,_,ChildElements}=BodyXml,
@@ -533,7 +567,7 @@ send_sforce_soap_message(SforceXml, SessionId, Endpoint)->
     Xml=parse_xml(SoapResponse),
     BodyXml=get_body_from_envelope(Xml),
     case is_fault(BodyXml) of
-        ok -> [_, {faultstring,ErrorMessage}|_]=get_fault(BodyXml), {err, ErrorMessage};
+        ok -> [_, {_,ErrorMessage}]=get_fault(BodyXml), {err, ErrorMessage};
         _ -> get_results_from_message(get_body_content(BodyXml))
     end.
  
