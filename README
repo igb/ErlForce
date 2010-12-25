@@ -1,2 +1,31 @@
-Unofficial, unsupported Salesforce.com Library/API implemented in Erlang and written by Ian Brown.
+Unofficial, unsupported Salesforce.com Library/API implemented in Erlang and written by Ian Brown (igb@hccp.org).
 
+Supported operations:
+
+login
+logout
+create
+update
+upsert
+delete
+get_user_info
+soql_query
+soql_query_all
+soql_query_more
+get_server_timestamp
+get_deleted
+describe_sobject
+describe_sobjects
+describe_global
+describe_data_category_groups
+describe_tabs
+describe_softphone_layout
+describe_layout
+merge
+set_password
+reset_password
+
+Not currently supported:
+
+search
+send_email
