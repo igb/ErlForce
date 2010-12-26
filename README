@@ -29,3 +29,10 @@ Not currently supported:
 
 search
 send_email
+undelete
+empty_recycle_bin
+retrieve
+process
+convert_lead
+invalidate_sessions
+get_updated
