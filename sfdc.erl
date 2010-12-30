@@ -1,5 +1,8 @@
+ %% @author Ian Brown <igb@hccp.org>
+ %%   [http://www.hccp.org]
+
 -module(sfdc).
--export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3]).
+-export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_single_email/3]).
 
 
 %% get login string 
@@ -383,15 +386,61 @@ search(Search, SessionId, Endpoint)->
 
 set_password(UserId, Password, SessionId, Endpoint)->
     SetPasswordMessage=lists:append(["<setPassword xmlns=\"urn:partner.soap.sforce.com\"><userId>", UserId ,"</userId><password>", Password, "</password></setPassword>"]),
-    Results=send_sforce_soap_message(SetPasswordMessage, SessionId, Endpoint).
-
+    Results=send_sforce_soap_message(SetPasswordMessage, SessionId, Endpoint),
+    case Results of 
+	[]->
+	    ok;
+	_ -> Results
+    end.
 
 
 %OPERATION: resetPassword
 
 reset_password(UserId, SessionId, Endpoint)->
     ResetPasswordMessage=lists:append(["<resetPassword xmlns=\"urn:partner.soap.sforce.com\"><userId>", UserId ,"</userId></resetPassword>"]),
-    Results=send_sforce_soap_message(ResetPasswordMessage, SessionId, Endpoint).
+    Results=send_sforce_soap_message(ResetPasswordMessage, SessionId, Endpoint),
+    case Results of 
+	[{password,[],[Password]}]->Password;
+	_ -> Results
+    end.
+
+%OPERATION: sendEmail
+
+send_single_email(Messages, SessionId, Endpoint)->
+    SendEmailMessage=lists:append(["<sendEmail xmlns=\"urn:partner.soap.sforce.com\">", get_xml_for_messages(Messages), "</sendEmail>"]),
+    Results=send_sforce_soap_message(SendEmailMessage, SessionId, Endpoint),
+    case Results of
+	[{success,[],["true"]}]->
+	    ok;
+	_ -> Results
+    end.
+
+get_xml_for_messages(Messages)->
+    get_xml_for_messages(Messages, []).
+
+get_xml_for_messages([H|T], Xml)->
+    lists:append([Xml, "<messages xsi:type=\"SingleEmailMessage\">", get_xml_for_message(H), "</messages>"]);
+   
+get_xml_for_messages([], Xml) ->
+    Xml.
+
+get_xml_for_message(Message)->
+    get_xml_for_message(Message, []).
+
+get_xml_for_message([H|T], Xml)->
+%    io:fwrite("message ~s ~n", H),
+    {ParamName, ParamValue}=H,
+    get_xml_for_message(T, lists:append([Xml, "<", ParamName, ">", ParamValue, "</", ParamName, ">"]));
+get_xml_for_message([], Xml) ->
+    Xml.
+    
+    
+    
+    
+
+%send_mass_email(ToAddresses, CcAddresses, BccAddresses, BccSender, SenderDisplayName, Subject, PlainTextBody, HtmlBody, EmailPriority, ReplyTo, SaveAsActivity, UseSignature, TemplateId, Charset, DocumentAttachments, References, WhatId)->
+
+
 
 
 %SObject
@@ -563,7 +612,7 @@ send_sforce_soap_message(SforceXml, SessionId, Endpoint)->
     SessionHeader=create_session_header(SessionId),
     SoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(SforceXml)),
     SoapResponse=send_soap_message(SoapMessage, Endpoint),
-   %% io:fwrite("message ~s ~n", [SoapResponse]),
+    io:fwrite("message ~s ~n", [SoapResponse]),
     Xml=parse_xml(SoapResponse),
     BodyXml=get_body_from_envelope(Xml),
     case is_fault(BodyXml) of
