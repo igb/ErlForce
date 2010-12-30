@@ -394,6 +394,8 @@ reset_password(UserId, SessionId, Endpoint)->
     Results=send_sforce_soap_message(ResetPasswordMessage, SessionId, Endpoint).
 
 
+
+
 %SObject
 
 get_xml_for_sobjects(Sobjects)-> 
