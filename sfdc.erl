@@ -378,7 +378,14 @@ logout(SessionId, Endpoint)->
 search(Search, SessionId, Endpoint)->
     SearchMessage=lists:append(["<search xmlns=\"urn:partner.soap.sforce.com\"><searchString>", Search, "</searchString></search>"]),
     Results=send_sforce_soap_message(SearchMessage, SessionId, Endpoint),
-    Results.
+    F=fun(SearchRecords)-> {searchRecords,_,[{record,_,Record}]}=SearchRecords,get_value_from_sobject_xml(Record) end,
+    lists:map(F, Results).
+
+
+
+    
+
+
 
 
 
@@ -573,7 +580,7 @@ get_fault(BodyXml)->
     [FaultCode, FaultString|Detail]=FaultChildElements,
     {faultcode,_,[FaultCodeValue]}=FaultCode,
     {faultstring,_,[FaultMessage]}=FaultString,
-    io:fwrite("message ~s ~n", ["here..."]),
+%%    io:fwrite("message ~s ~n", ["here..."]),
     case Detail of
 	[]->[{faultcode, FaultCodeValue},{faultstring, FaultMessage}];%,{detail,FaultDetail}]
 	{detail,_,[FaultDetail]} -> extract_fault_detail(FaultDetail);
@@ -586,7 +593,6 @@ extract_fault_detail(FaultDetail)->
      [{'sf:exceptionCode',[],[ExceptionCode]},
       {'sf:exceptionMessage',[],
        [ExceptionMessage]}]}=FaultDetail,
-        io:fwrite("message ~s ~n", ["here2..."]),
     [{errorCode, ExceptionCode}, {errorMessage, ExceptionMessage}].
 
 get_body_content(BodyXml)->
@@ -614,7 +620,7 @@ send_sforce_soap_message(SforceXml, SessionId, Endpoint)->
     SessionHeader=create_session_header(SessionId),
     SoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(SforceXml)),
     SoapResponse=send_soap_message(SoapMessage, Endpoint),
-    io:fwrite("message ~s ~n", [SoapResponse]),
+  %  io:fwrite("message ~s ~n", [SoapResponse]),
     Xml=parse_xml(SoapResponse),
     BodyXml=get_body_from_envelope(Xml),
     case is_fault(BodyXml) of
