@@ -24,10 +24,10 @@ describe_layout
 merge
 set_password
 reset_password
+search
 
 Not currently supported:
 
-search
 send_email
 undelete
 empty_recycle_bin
