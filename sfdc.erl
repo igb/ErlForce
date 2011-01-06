@@ -2,20 +2,18 @@
  %%   [http://www.hccp.org]
 
 -module(sfdc).
--export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_single_email/3]).
+-export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_single_email/3, convert_lead/11]).
 
 
-%% get login string 
 
-get_default_endpoint()->
-    "https://www.salesforce.com/services/Soap/u/18.0".
-
+-define(DEFAULT_ENDPOINT, "https://www.salesforce.com/services/Soap/u/18.0").
 
 
 %% OPERATION: Login
 
+
 login (Username, Password, SecurityToken)->
-    login(Username, Password, SecurityToken, get_default_endpoint()).
+    login (Username, Password, SecurityToken, ?DEFAULT_ENDPOINT).
 
 login (Username, Password, SecurityToken, Endpoint)->
     LoginXml=create_login_request(Username, lists:append([Password, SecurityToken])),
@@ -421,6 +419,25 @@ send_single_email(Messages, SessionId, Endpoint)->
 	    ok;
 	_ -> Results
     end.
+
+%OPERATION: convertLead
+
+convert_lead(LeadId, ContactId, AccountId, OwnerId, OverWriteLeadSource, DoNotCreateOpportunity, OpportunityName, ConvertedStatus, SendEmailToOwner, SessionId, Endpoint)->
+    ConvertLeadMessage=lists:append(["<convertLead xmlns=\"urn:partner.soap.sforce.com\"><leadConverts><accountId>", AccountId ,"</accountId><contactId>", ContactId,"</contactId><convertedStatus>",ConvertedStatus,"</convertedStatus><doNotCreateOpportunity>", DoNotCreateOpportunity, "</doNotCreateOpportunity><leadId>",LeadId,"</leadId><opportunityName>",OpportunityName,"</opportunityName><overwriteLeadSource>",OverWriteLeadSource,"</overwriteLeadSource><ownerId>",OwnerId,"</ownerId><sendNotificationEmail>",SendEmailToOwner,"</sendNotificationEmail></leadConverts></convertLead>"]),
+    Results=send_sforce_soap_message(ConvertLeadMessage, SessionId, Endpoint),
+    [{accountId,_,_},
+     {contactId,_,_},
+     {errors,_, Errors},
+     {leadId,_,_},
+     {opportunityId,_,_},
+     {success,_,[Success]}]=Results,
+    case Success of
+	"true" -> Results;
+	"false" -> [{message,[],[ErrMessage]}|_]=Errors,
+		   {err, ErrMessage}
+    end.
+
+
 
 get_xml_for_messages(Messages)->
     get_xml_for_messages(Messages, []).
