@@ -6,13 +6,13 @@
 login()->
     application:start(inets),
     application:start(ssl),
-    LoginInfo=sfdc:login("eerla@force.hccp.org", "xxxxx", "8C9zXTd8uv1TIz00trCnmPJZgO"),
+    LoginInfo=sfdc:login("eerla@force.hccp.org", "erlang3000", "zusrRXbjWKUbMQZxKFwae8MZ"),
     LoginInfo.
 
 root_login()->
     application:start(inets),
     application:start(ssl),
-    LoginInfo=sfdc:login("igb@force.hccp.org", "xxxx", "XeiJmucDCpzcF0oarKtONajAbG"),
+
     LoginInfo.
 
 
@@ -70,7 +70,7 @@ merge_test()->
 
 search_test()->
     [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
-    1=sfdc:search("hccp", SessionId, Endpoint).
+    1=sfdc:search("FIND {*@force.hccp.org}", SessionId, Endpoint).
 
 password_set_test()->
 [{sessionId,SessionId}, {serverUrl, Endpoint}]=root_login(),
@@ -172,7 +172,19 @@ describe_data_category_groups_test()->
     [{sessionId,SessionId}, {serverUrl, Endpoint}]=root_login(),
     1=sfdc:describe_data_category_groups("Candidate__c", SessionId, Endpoint).
 
+convert_lead_test()->
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=root_login(),
 
+    Lead=[ {"type", "string", "Lead"},
+          {"LastName", "string", "Leaderson"},
+	   {"FirstName", "string", "Lead"},
+	   {"Company", "string", "LeadCo"},
+	   {"Status", "string", "Open"}
+         ],
+    {ok, Id}=sfdc:create(Lead,SessionId,Endpoint),
+
+    {err, "Converted objects can only be owned by users.  You must specify a user for the Owner field."}=sfdc:convert_lead(Id, "", "", "", "false", "false", "", "Qualified", "true", SessionId, Endpoint),
+     [{"accountId", ReturnedAccountId},{"contactId", ReturnedContactId},{"leadId", ReturnedLeadId},{"opportunityId", ReturnedOpportunityId}]=sfdc:convert_lead(Id, "", "", "005A0000000KRps", "false", "true", "", "Qualified", "true", SessionId, Endpoint).
 
 validate_query(Results, ExpectedIsDone, ExpectedSize, ExpectedNumberOfAttributesPerRecord)->
     {IsDone, _, Size, Records}=Results,
