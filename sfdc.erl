@@ -171,9 +171,13 @@ create(Sobject, SessionId, Endpoint)->
 get_create_results_from_soap_response(SoapResponse)->
     Xml=parse_xml(SoapResponse),
     BodyXml=get_body_from_envelope(Xml),
-    {_,_,[{result,_,CreateResponse}]}=get_body_content(BodyXml),
-    [{id,[],[ObjectId]},{success,[],["true"]}]=CreateResponse,
-    {ok,ObjectId}.
+    BodyContent=get_body_content(BodyXml),
+    {_,_,[{result,_,CreateResponse}]}=BodyContent,
+    case CreateResponse of
+	[{id,[],[ObjectId]},{success,[],["true"]}]->{ok,ObjectId};
+	[{errors,[],[Fields, {message,[], Message}|_]},{success,[],["false"]}]->{err,Message};
+	_ ->{err, "unknown error has occurred"}
+    end.
 
 
 
