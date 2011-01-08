@@ -427,21 +427,25 @@ send_single_email(Messages, SessionId, Endpoint)->
 %OPERATION: convertLead
 
 convert_lead(LeadId, ContactId, AccountId, OwnerId, OverWriteLeadSource, DoNotCreateOpportunity, OpportunityName, ConvertedStatus, SendEmailToOwner, SessionId, Endpoint)->
-    ConvertLeadMessage=lists:append(["<convertLead xmlns=\"urn:partner.soap.sforce.com\"><leadConverts><accountId>", AccountId ,"</accountId><contactId>", ContactId,"</contactId><convertedStatus>",ConvertedStatus,"</convertedStatus><doNotCreateOpportunity>", DoNotCreateOpportunity, "</doNotCreateOpportunity><leadId>",LeadId,"</leadId><opportunityName>",OpportunityName,"</opportunityName><overwriteLeadSource>",OverWriteLeadSource,"</overwriteLeadSource><ownerId>",OwnerId,"</ownerId><sendNotificationEmail>",SendEmailToOwner,"</sendNotificationEmail></leadConverts></convertLead>"]),
+    ConvertLeadMessage=lists:append(["<convertLead xmlns=\"urn:partner.soap.sforce.com\"><leadConverts><accountId>", AccountId ,"</accountId><contactId>", ContactId,"</contactId><convertedStatus>",ConvertedStatus,"</convertedStatus><doNotCreateOpportunity>", DoNotCreateOpportunity, "</doNotCreateOpportunity><leadId>",LeadId,"</leadId>", get_opportunity_name(OpportunityName),"<overwriteLeadSource>",OverWriteLeadSource,"</overwriteLeadSource><ownerId>",OwnerId,"</ownerId><sendNotificationEmail>",SendEmailToOwner,"</sendNotificationEmail></leadConverts></convertLead>"]),
     Results=send_sforce_soap_message(ConvertLeadMessage, SessionId, Endpoint),
-    [{accountId,_,_},
-     {contactId,_,_},
+    [{accountId,_,ReturnedAccountId},
+     {contactId,_,ReturnedContactId},
      {errors,_, Errors},
-     {leadId,_,_},
-     {opportunityId,_,_},
+     {leadId,_,ReturnedLeadId},
+     {opportunityId,_,ReturnedOpportunityId},
      {success,_,[Success]}]=Results,
     case Success of
-	"true" -> Results;
+	"true" -> [{"accountId", ReturnedAccountId},{"contactId", ReturnedContactId},{"leadId", ReturnedLeadId},{"opportunityId", ReturnedOpportunityId}];
 	"false" -> [{message,[],[ErrMessage]}|_]=Errors,
 		   {err, ErrMessage}
     end.
 
-
+get_opportunity_name(OpportunityName)->
+    case OpportunityName of 
+	[]->"";
+	_->lists:append(["<opportunityName>",OpportunityName,"</opportunityName>"])
+    end.
 
 get_xml_for_messages(Messages)->
     get_xml_for_messages(Messages, []).
