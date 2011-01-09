@@ -36,6 +36,7 @@ merge
 set_password
 reset_password
 search
+convert_lead
 
 Not currently supported:
 
@@ -44,6 +45,5 @@ undelete
 empty_recycle_bin
 retrieve
 process
-convert_lead
 invalidate_sessions
 get_updated
