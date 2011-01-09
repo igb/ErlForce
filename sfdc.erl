@@ -429,17 +429,22 @@ send_single_email(Messages, SessionId, Endpoint)->
 convert_lead(LeadId, ContactId, AccountId, OwnerId, OverWriteLeadSource, DoNotCreateOpportunity, OpportunityName, ConvertedStatus, SendEmailToOwner, SessionId, Endpoint)->
     ConvertLeadMessage=lists:append(["<convertLead xmlns=\"urn:partner.soap.sforce.com\"><leadConverts><accountId>", AccountId ,"</accountId><contactId>", ContactId,"</contactId><convertedStatus>",ConvertedStatus,"</convertedStatus><doNotCreateOpportunity>", DoNotCreateOpportunity, "</doNotCreateOpportunity><leadId>",LeadId,"</leadId>", get_opportunity_name(OpportunityName),"<overwriteLeadSource>",OverWriteLeadSource,"</overwriteLeadSource><ownerId>",OwnerId,"</ownerId><sendNotificationEmail>",SendEmailToOwner,"</sendNotificationEmail></leadConverts></convertLead>"]),
     Results=send_sforce_soap_message(ConvertLeadMessage, SessionId, Endpoint),
-    [{accountId,_,ReturnedAccountId},
-     {contactId,_,ReturnedContactId},
-     {errors,_, Errors},
-     {leadId,_,ReturnedLeadId},
-     {opportunityId,_,ReturnedOpportunityId},
-     {success,_,[Success]}]=Results,
-    case Success of
-	"true" -> [{"accountId", ReturnedAccountId},{"contactId", ReturnedContactId},{"leadId", ReturnedLeadId},{"opportunityId", ReturnedOpportunityId}];
-	"false" -> [{message,[],[ErrMessage]}|_]=Errors,
-		   {err, ErrMessage}
+    
+    case Results of 
+	[{accountId,_,ReturnedAccountId},
+	 {contactId,_,ReturnedContactId},
+	 {errors,_, Errors},
+	 {leadId,_,ReturnedLeadId},
+	 {opportunityId,_,ReturnedOpportunityId},
+	 {success,_,["false"]}] -> [{message,[],[ErrMessage]}|_]=Errors,
+				   {err, ErrMessage};
+	[{accountId,_,ReturnedAccountId},
+	 {contactId,_,ReturnedContactId},
+	 {leadId,_,ReturnedLeadId},
+	 {opportunityId,_,ReturnedOpportunityId},
+	 {success,_,["true"]}] -> [{"accountId", lists:flatten(ReturnedAccountId)},{"contactId", lists:flatten(ReturnedContactId)},{"leadId", lists:flatten(ReturnedLeadId)},{"opportunityId", lists:flatten(ReturnedOpportunityId)}]
     end.
+
 
 get_opportunity_name(OpportunityName)->
     case OpportunityName of 
