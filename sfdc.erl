@@ -2,7 +2,7 @@
  %%   [http://www.hccp.org]
 
 -module(sfdc).
--export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_single_email/3, convert_lead/11]).
+-export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_single_email/3, convert_lead/11, process_submit/5, process_workitem/6, get_process_response/4]).
 
 
 
@@ -430,6 +430,8 @@ convert_lead(LeadId, ContactId, AccountId, OwnerId, OverWriteLeadSource, DoNotCr
     ConvertLeadMessage=lists:append(["<convertLead xmlns=\"urn:partner.soap.sforce.com\"><leadConverts><accountId>", AccountId ,"</accountId><contactId>", ContactId,"</contactId><convertedStatus>",ConvertedStatus,"</convertedStatus><doNotCreateOpportunity>", DoNotCreateOpportunity, "</doNotCreateOpportunity><leadId>",LeadId,"</leadId>", get_opportunity_name(OpportunityName),"<overwriteLeadSource>",OverWriteLeadSource,"</overwriteLeadSource><ownerId>",OwnerId,"</ownerId><sendNotificationEmail>",SendEmailToOwner,"</sendNotificationEmail></leadConverts></convertLead>"]),
     Results=send_sforce_soap_message(ConvertLeadMessage, SessionId, Endpoint),
     
+
+    % really needs to be a better way to do this...
     case Results of 
 	[{accountId,_,ReturnedAccountId},
 	 {contactId,_,ReturnedContactId},
@@ -451,6 +453,55 @@ get_opportunity_name(OpportunityName)->
 	[]->"";
 	_->lists:append(["<opportunityName>",OpportunityName,"</opportunityName>"])
     end.
+
+
+%OPERATION: process_submit
+process_submit(Id, Comment, NextApproverIds,SessionId, Endpoint)->
+    ProcessMessage=get_process_envelope("ProcessSubmitRequest", lists:append(["<objectId>", Id, "</objectId>"]), Comment, NextApproverIds),
+    send_process_request(ProcessMessage, SessionId, Endpoint).
+
+send_process_request(Request, SessionId, Endpoint)->
+    Results=send_sforce_soap_message(Request, SessionId, Endpoint),
+    case Results of
+	[_,{errors,[],
+                         [{message,_,
+                              [ErrorMessage]},
+                          {statusCode,_,[_]}]}|_]->
+	    {err, ErrorMessage};
+	_->
+	    get_process_response(Results, [],[],[])
+    end.
+
+get_process_response([H|T], Xml, NewWorkitemIds, ActorIds)->
+    case H of
+	{actorIds,[],[ActorId]}->
+	    get_process_response(T, Xml,NewWorkitemIds,lists:append(ActorIds, [ActorId]));
+	{newWorkitemIds,[],[NewWorkItemId]} ->
+	    get_process_response(T, Xml,lists:append(NewWorkitemIds, [NewWorkItemId]), ActorIds);
+	{Name,_,[Value]}->
+	    get_process_response(T, lists:append([Xml, [{atom_to_list(Name), Value}]]),NewWorkitemIds, ActorIds)
+    end;
+get_process_response([], Xml, NewWorkitemIds, ActorIds)->
+    lists:append([Xml, [{"newWorkitemIds", NewWorkitemIds}], [{"actorIds", ActorIds}]]).
+
+%OPERATION: process_workitem
+process_workitem(WorkItemId, Action, Comment, NextApproverIds,SessionId, Endpoint)->
+    ProcessMessage=get_process_envelope("ProcessWorkitemRequest", lists:append(["<workitemId>", WorkItemId, "</workitemId><action>", Action, "</action>"]), Comment, NextApproverIds),
+    send_process_request(ProcessMessage, SessionId, Endpoint).
+
+
+
+get_process_envelope(ProcessRequestType, Xml, Comment, NextApproverIds)->
+    lists:append(["<process xmlns=\"urn:partner.soap.sforce.com\"><actions xsi:type=\"tns:", ProcessRequestType, "\"><comments>",Comment,"</comments>",get_xml_for_next_approver_ids(NextApproverIds),Xml,"</actions></process>"]).
+     
+get_xml_for_next_approver_ids(NextApproverIds)->
+    get_xml_for_next_approver_ids("", NextApproverIds).
+
+get_xml_for_next_approver_ids(Xml, [H|T])->
+    ApproverXml=lists:append([Xml, "<nextApproverIds>",H,"</nextApproverIds>"]),
+    get_xml_for_next_approver_ids(ApproverXml, T);
+get_xml_for_next_approver_ids(Xml,[]) ->
+    Xml.
 
 get_xml_for_messages(Messages)->
     get_xml_for_messages(Messages, []).
