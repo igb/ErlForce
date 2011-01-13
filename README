@@ -38,6 +38,7 @@ reset_password
 search
 convert_lead
 process
+invalidate_sessions
 
 Not currently supported:
 
@@ -45,5 +46,4 @@ send_email
 undelete
 empty_recycle_bin
 retrieve
-invalidate_sessions
 get_updated

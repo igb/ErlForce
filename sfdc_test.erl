@@ -6,7 +6,7 @@
 login()->
     application:start(inets),
     application:start(ssl),
-    LoginInfo=sfdc:login("eerla@force.hccp.org", "erlang3000", "zusrRXbjWKUbMQZxKFwae8MZ"),
+
     LoginInfo.
 
 root_login()->
@@ -185,6 +185,81 @@ convert_lead_test()->
 
     {err, "Converted objects can only be owned by users.  You must specify a user for the Owner field."}=sfdc:convert_lead(Id, "", "", "", "false", "false", "", "Qualified", "true", SessionId, Endpoint),
      [{"accountId", ReturnedAccountId},{"contactId", ReturnedContactId},{"leadId", ReturnedLeadId},{"opportunityId", ReturnedOpportunityId}]=sfdc:convert_lead(Id, "", "", "005A0000000KRps", "false", "true", "", "Qualified", "true", SessionId, Endpoint).
+
+
+process_submit_test()->
+    
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
+    
+    CandidateA=[
+		{"type", "string", "Candidate__c"},
+		{"First_Name__c", "string", "Ian"},
+		{"Last_Name__c", "string", "Brown"}
+	       ],
+    
+    {ok, IdA}=sfdc:create(CandidateA, SessionId, Endpoint),
+    {err, "No applicable approval process found."}=sfdc:process_submit(IdA, "testing", [],SessionId, Endpoint),
+    {ok, IdA}=sfdc:delete(IdA, SessionId, Endpoint),
+    CandidateB=[
+		{"type", "string", "Candidate__c"},
+		{"First_Name__c", "string", "Foo"},
+		{"Last_Name__c", "string", "Foo"}
+	      ],
+    {ok, IdB}=sfdc:create(CandidateB, SessionId, Endpoint),
+    [{"entityId",_},
+                     {"instanceId",_},
+                     {"instanceStatus",_},
+                     {"success","true"},
+                     {"newWorkitemIds",[_]},
+                     {"actorIds",[_]}]=sfdc:process_submit(IdB, "testing", ["005A0000000KRps"],SessionId, Endpoint),
+    {ok, IdB}=sfdc:delete(IdB, SessionId, Endpoint).
+ 
+
+get_process_response_test()->
+    Results=[{actorIds,[],["ActorId1"]},
+	     {entityId,[],["EntityId"]},
+	     {instanceId,[],["InstanceId"]},
+	     {instanceStatus,[],["InstanceStatus"]},
+	     {newWorkitemIds,[],["NewWorkItemId1"]},
+	     {success,[],["true"]}],
+    [{"entityId","EntityId"},
+     {"instanceId","InstanceId"},
+     {"instanceStatus","InstanceStatus"},
+     {"success","true"},
+     {"newWorkitemIds",["NewWorkItemId1"]},
+     {"actorIds",["ActorId1"]}]=sfdc:get_process_response(Results, [],[],[]).
+
+
+invalidate_sessions_test()->
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
+    [{sessionId,SessionId2}, {serverUrl, _}]=root_login(),
+    ok=sfdc:invalidate_sessions([SessionId2],SessionId, Endpoint),
+    {err,  "The session is invalid or logged out."}=sfdc:invalidate_sessions([SessionId2],SessionId, Endpoint).
+
+
+empty_recycle_bin_test()->
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
+    
+    CandidateA=[
+		{"type", "string", "Candidate__c"},
+		{"First_Name__c", "string", "IanRecycleBinA"},
+		{"Last_Name__c", "string", "BrownRecycleBinA"}
+	       ],
+    
+    {ok, IdA}=sfdc:create(CandidateA, SessionId, Endpoint),
+    {ok, IdA}=sfdc:delete(IdA, SessionId, Endpoint),
+
+    CandidateB=[
+		{"type", "string", "Candidate__c"},
+		{"First_Name__c", "string", "FooRecycleBinB"},
+		{"Last_Name__c", "string", "FooRecycleBinB"}
+	      ],
+    {ok, IdB}=sfdc:create(CandidateB, SessionId, Endpoint),
+    {ok, IdB}=sfdc:delete(IdB, SessionId, Endpoint),
+    ok=sfdc:empty_recycle_bin([IdA,IdB], SessionId, Endpoint).
+
+    
+
 
 validate_query(Results, ExpectedIsDone, ExpectedSize, ExpectedNumberOfAttributesPerRecord)->
     {IsDone, _, Size, Records}=Results,

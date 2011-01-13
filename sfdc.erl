@@ -2,7 +2,7 @@
  %%   [http://www.hccp.org]
 
 -module(sfdc).
--export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_single_email/3, convert_lead/11, process_submit/5, process_workitem/6, get_process_response/4]).
+-export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_single_email/3, convert_lead/11, process_submit/5, process_workitem/6, get_process_response/4, invalidate_sessions/3, empty_recycle_bin/3]).
 
 
 
@@ -424,6 +424,36 @@ send_single_email(Messages, SessionId, Endpoint)->
 	_ -> Results
     end.
 
+
+get_xml_for_messages(Messages)->
+    get_xml_for_messages(Messages, []).
+
+get_xml_for_messages([H|T], Xml)->
+    lists:append([Xml, "<messages xsi:type=\"SingleEmailMessage\">", get_xml_for_message(H), "</messages>"]);
+   
+get_xml_for_messages([], Xml) ->
+    Xml.
+
+get_xml_for_message(Message)->
+    get_xml_for_message(Message, []).
+
+get_xml_for_message([H|T], Xml)->
+%    io:fwrite("message ~s ~n", H),
+    {ParamName, ParamValue}=H,
+    get_xml_for_message(T, lists:append([Xml, "<", ParamName, ">", ParamValue, "</", ParamName, ">"]));
+get_xml_for_message([], Xml) ->
+    Xml.
+    
+    
+    
+    
+
+%send_mass_email(ToAddresses, CcAddresses, BccAddresses, BccSender, SenderDisplayName, Subject, PlainTextBody, HtmlBody, EmailPriority, ReplyTo, SaveAsActivity, UseSignature, TemplateId, Charset, DocumentAttachments, References, WhatId)->
+
+
+
+
+
 %OPERATION: convertLead
 
 convert_lead(LeadId, ContactId, AccountId, OwnerId, OverWriteLeadSource, DoNotCreateOpportunity, OpportunityName, ConvertedStatus, SendEmailToOwner, SessionId, Endpoint)->
@@ -503,35 +533,41 @@ get_xml_for_next_approver_ids(Xml, [H|T])->
 get_xml_for_next_approver_ids(Xml,[]) ->
     Xml.
 
-get_xml_for_messages(Messages)->
-    get_xml_for_messages(Messages, []).
 
-get_xml_for_messages([H|T], Xml)->
-    lists:append([Xml, "<messages xsi:type=\"SingleEmailMessage\">", get_xml_for_message(H), "</messages>"]);
-   
-get_xml_for_messages([], Xml) ->
+
+
+%OPERATION: invalidateSessions 
+invalidate_sessions(SessionIdsToInvalidate, SessionId, Endpoint)->
+    InvalidateMessage=lists:append(["<invalidateSessions xmlns=\"urn:partner.soap.sforce.com\">", get_xml_for_session_ids(SessionIdsToInvalidate),"</invalidateSessions>"]),
+    Results=send_sforce_soap_message(InvalidateMessage, SessionId, Endpoint),
+   case  Results of
+       [{success,[],["true"]}]->ok;
+       [{errors,[],
+	 [{message,_,
+	   [ErrorMessage]},
+	  {statusCode,_,[_]}]
+	}|_]->
+	   {err, ErrorMessage}
+   end.
+
+
+%OPERATION: emptyRecycleBin
+empty_recycle_bin(Ids, SessionId, Endpoint)->
+    F=fun(Id)->lists:append(["<Ids>", Id,"</Ids>"]) end,
+    EmptyRecycleBinMessage=lists:append(["<emptyRecycleBin xmlns=\"urn:partner.soap.sforce.com\">", lists:flatten(lists:map(F, Ids)), "</emptyRecycleBin>"]),
+    Results=send_sforce_soap_message(EmptyRecycleBinMessage, SessionId, Endpoint),
+    Results.
+
+
+get_xml_for_session_ids(SessionIds)->
+    get_xml_for_session_ids(SessionIds, []).
+
+get_xml_for_session_ids([H|T], Xml)->
+    get_xml_for_session_ids(T, lists:append(["<sessionIds>", H, "</sessionIds>"]));
+get_xml_for_session_ids([], Xml) ->
     Xml.
-
-get_xml_for_message(Message)->
-    get_xml_for_message(Message, []).
-
-get_xml_for_message([H|T], Xml)->
-%    io:fwrite("message ~s ~n", H),
-    {ParamName, ParamValue}=H,
-    get_xml_for_message(T, lists:append([Xml, "<", ParamName, ">", ParamValue, "</", ParamName, ">"]));
-get_xml_for_message([], Xml) ->
-    Xml.
     
     
-    
-    
-
-%send_mass_email(ToAddresses, CcAddresses, BccAddresses, BccSender, SenderDisplayName, Subject, PlainTextBody, HtmlBody, EmailPriority, ReplyTo, SaveAsActivity, UseSignature, TemplateId, Charset, DocumentAttachments, References, WhatId)->
-
-
-
-
-
 
 %SObject
 
