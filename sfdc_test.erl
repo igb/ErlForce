@@ -7,6 +7,8 @@ login()->
     application:start(inets),
     application:start(ssl),
 
+
+
     LoginInfo.
 
 root_login()->
@@ -258,6 +260,29 @@ empty_recycle_bin_test()->
     {ok, IdB}=sfdc:delete(IdB, SessionId, Endpoint),
     [{ok,IdA},{ok,IdB}]=sfdc:empty_recycle_bin([IdA,IdB], SessionId, Endpoint),
     [{err,_},{err,_}]=sfdc:empty_recycle_bin(["foo","bar"], SessionId, Endpoint).
+
+
+undelete_test()->
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
+    
+    CandidateA=[
+		{"type", "string", "Candidate__c"},
+		{"First_Name__c", "string", "IanRecycleBinA"},
+		{"Last_Name__c", "string", "BrownRecycleBinA"}
+	       ],
+    
+    {ok, IdA}=sfdc:create(CandidateA, SessionId, Endpoint),
+    {ok, IdA}=sfdc:delete(IdA, SessionId, Endpoint),
+
+    CandidateB=[
+		{"type", "string", "Candidate__c"},
+		{"First_Name__c", "string", "FooRecycleBinB"},
+		{"Last_Name__c", "string", "FooRecycleBinB"}
+	      ],
+    {ok, IdB}=sfdc:create(CandidateB, SessionId, Endpoint),
+    {ok, IdB}=sfdc:delete(IdB, SessionId, Endpoint),
+    [{ok,IdA},{ok,IdB}]=sfdc:undelete([IdA,IdB], SessionId, Endpoint),
+    [{err,_},{err,_}]=sfdc:undelete(["foo","bar"], SessionId, Endpoint).
 
     
 

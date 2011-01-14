@@ -40,10 +40,10 @@ convert_lead
 process
 invalidate_sessions
 empty_recycle_bin
+undelete
 
 Not currently supported:
 
 send_email
-undelete
 retrieve
 get_updated
