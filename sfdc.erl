@@ -553,10 +553,23 @@ invalidate_sessions(SessionIdsToInvalidate, SessionId, Endpoint)->
 
 %OPERATION: emptyRecycleBin
 empty_recycle_bin(Ids, SessionId, Endpoint)->
-    F=fun(Id)->lists:append(["<Ids>", Id,"</Ids>"]) end,
-    EmptyRecycleBinMessage=lists:append(["<emptyRecycleBin xmlns=\"urn:partner.soap.sforce.com\">", lists:flatten(lists:map(F, Ids)), "</emptyRecycleBin>"]),
+    XmlForIds=fun(Id)->lists:append(["<Ids>", Id,"</Ids>"]) end,
+    EmptyRecycleBinMessage=lists:append(["<emptyRecycleBin xmlns=\"urn:partner.soap.sforce.com\">", lists:flatten(lists:map(XmlForIds, Ids)), "</emptyRecycleBin>"]),
     Results=send_sforce_soap_message(EmptyRecycleBinMessage, SessionId, Endpoint),
-    Results.
+    ConvertResults=fun(Result)->
+			   case Result of
+			       [{id,[],[EmptiedId]},{success,[],["true"]}]->{ok, EmptiedId};
+			       [{errors,[],
+				 [{message,_,
+				   [ErrorMessage]},
+				  {statusCode,_,[_]}]
+				}|_]->{err, ErrorMessage}
+			   end
+		   end,
+    lists:map(ConvertResults,Results).
+			   
+				   
+
 
 
 get_xml_for_session_ids(SessionIds)->

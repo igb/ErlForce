@@ -256,7 +256,8 @@ empty_recycle_bin_test()->
 	      ],
     {ok, IdB}=sfdc:create(CandidateB, SessionId, Endpoint),
     {ok, IdB}=sfdc:delete(IdB, SessionId, Endpoint),
-    ok=sfdc:empty_recycle_bin([IdA,IdB], SessionId, Endpoint).
+    [{ok,IdA},{ok,IdB}]=sfdc:empty_recycle_bin([IdA,IdB], SessionId, Endpoint),
+    [{err,_},{err,_}]=sfdc:empty_recycle_bin(["foo","bar"], SessionId, Endpoint).
 
     
 

@@ -39,11 +39,11 @@ search
 convert_lead
 process
 invalidate_sessions
+empty_recycle_bin
 
 Not currently supported:
 
 send_email
 undelete
-empty_recycle_bin
 retrieve
 get_updated
