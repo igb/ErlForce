@@ -41,9 +41,9 @@ process
 invalidate_sessions
 empty_recycle_bin
 undelete
+retrieve
 
 Not currently supported:
 
 send_email
-retrieve
 get_updated
