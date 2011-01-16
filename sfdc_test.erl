@@ -7,8 +7,6 @@ login()->
     application:start(inets),
     application:start(ssl),
 
-
-
     LoginInfo.
 
 root_login()->
@@ -284,7 +282,36 @@ undelete_test()->
     [{ok,IdA},{ok,IdB}]=sfdc:undelete([IdA,IdB], SessionId, Endpoint),
     [{err,_},{err,_}]=sfdc:undelete(["foo","bar"], SessionId, Endpoint).
 
+retrieve_test()->
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
+        CandidateA=[
+		{"type", "string", "Candidate__c"},
+		{"First_Name__c", "string", "IanRetrieveA"},
+		{"Last_Name__c", "string", "BrownRetrieveA"}
+	       ],
+    {ok, IdA}=sfdc:create(CandidateA, SessionId, Endpoint),
+
+
+    CandidateB=[
+		{"type", "string", "Candidate__c"},
+		{"First_Name__c", "string", "FooRetrieveB"},
+		{"Last_Name__c", "string", "FooRetrieveB"}
+	       ],
+    {ok, IdB}=sfdc:create(CandidateB, SessionId, Endpoint),
     
+    [
+     [{"type","string","Candidate__c"},
+      {"Id","string",_},
+      {"First_Name__c","string","IanRetrieveA"},
+      {"Last_Name__c","string","BrownRetrieveA"},
+      {"Id","string",_}],
+     [{"type","string","Candidate__c"},
+      {"Id","string",_},
+      {"First_Name__c","string","FooRetrieveB"},
+      {"Last_Name__c","string","FooRetrieveB"},
+      {"Id","string",_}]     
+    ]=sfdc:retrieve(["First_Name__c", "Last_Name__c"], "Candidate__c", [IdA, IdB], SessionId, Endpoint),
+   {err, _}= sfdc:retrieve(["First_Name__c", "Last_Name__c"], "Candidate__c", ["xxx"], SessionId, Endpoint).
 
 
 validate_query(Results, ExpectedIsDone, ExpectedSize, ExpectedNumberOfAttributesPerRecord)->
