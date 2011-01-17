@@ -2,7 +2,7 @@
  %%   [http://www.hccp.org]
 
 -module(sfdc).
--export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_single_email/3, convert_lead/11, process_submit/5, process_workitem/6, get_process_response/4, invalidate_sessions/3, empty_recycle_bin/3, undelete/3, retrieve/5]).
+-export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_single_email/3, convert_lead/11, process_submit/5, process_workitem/6, get_process_response/4, invalidate_sessions/3, empty_recycle_bin/3, undelete/3, retrieve/5, get_updated/5]).
 
 
 
@@ -601,7 +601,29 @@ get_xml_for_session_ids([H|T], Xml)->
 get_xml_for_session_ids([], Xml) ->
     Xml.
     
+
+
+%OPERATION: getUpdated
+get_updated(ObjectType, StartDate, EndDate, SessionId, Endpoint)->
+    GetUpdatedMessage=lists:append(["<getUpdated xmlns=\"urn:partner.soap.sforce.com\"><sObjectType>",ObjectType,"</sObjectType><startDate>",erlang_date_to_xsd_date_time(StartDate),"</startDate><endDate>",     erlang_date_to_xsd_date_time(EndDate),"</endDate></getUpdated>"]),
+   Results=send_sforce_soap_message(GetUpdatedMessage, SessionId, Endpoint),
+    get_updated_results(Results).
     
+
+get_updated_results(Results)->
+    get_updated_results(Results,[], []).
+
+get_updated_results([H|T],Ids, LastDate)->
+    case H of 
+	{ids,[],[Id]}->
+	   get_updated_results(T,lists:append(Ids, [Id]), LastDate);
+	 {latestDateCovered,_, [LastDateCovered]}-> 
+	    get_updated_results(T,Ids, xsd_datetime_to_erlang_datetime(LastDateCovered))
+    end;
+get_updated_results([], Ids, LastDate) ->
+    {{ids, Ids},{lastDateCovered, LastDate}}.
+
+									
 
 %SObject
 

@@ -6,13 +6,11 @@
 login()->
     application:start(inets),
     application:start(ssl),
-
     LoginInfo.
 
 root_login()->
     application:start(inets),
     application:start(ssl),
-
     LoginInfo.
 
 
@@ -360,6 +358,10 @@ upsert_test()->
     [{"created","false"},{"id",Id},{"success","true"}]=UpdateResult,
     2=length(delete_notes_functional_test()).
     
+get_updated_test()->
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=root_login(),
+    {{ids,_},{lastDateCovered, _}}=sfdc:get_updated("Candidate__c", {{2011,1,1},{0,0,0}}, erlang:localtime(),SessionId, Endpoint),
+    {{ids,_},{lastDateCovered, _}}=sfdc:get_updated("Candidate__c", erlang:localtime(), erlang:localtime(),SessionId, Endpoint).
 
 get_user_info_sobject()->
     [{"accessibilityMode","string","false"},
