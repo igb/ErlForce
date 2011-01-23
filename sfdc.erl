@@ -2,7 +2,7 @@
  %%   [http://www.hccp.org]
 
 -module(sfdc).
--export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_single_email/3, convert_lead/11, process_submit/5, process_workitem/6, get_process_response/4, invalidate_sessions/3, empty_recycle_bin/3, undelete/3, retrieve/5, get_updated/5]).
+-export([login/3, login/4, update/3, get_user_info/2, get_user_info_sobject_from_soap_response/1, soql_query/3, soql_query_all/3, soql_query_more/3, get_all_results_for_query/3, create/3, delete/3, get_server_timestamp/2, logout/2, get_deleted/5, erlang_date_to_xsd_date_time/1,integer_pad/1,describe_sobject/3,describe_sobjects/3, describe_global/2, describe_data_category_groups/3,describe_tabs/2, describe_softphone_layout/2, describe_layout/3, describe_layout/4, upsert/4, merge/5, search/3, set_password/4, reset_password/3, send_email/3, convert_lead/11, process_submit/5, process_workitem/6, get_process_response/4, invalidate_sessions/3, empty_recycle_bin/3, undelete/3, retrieve/5, get_updated/5]).
 
 
 
@@ -415,21 +415,35 @@ reset_password(UserId, SessionId, Endpoint)->
 
 %OPERATION: sendEmail
 
-send_single_email(Messages, SessionId, Endpoint)->
+send_email(Messages, SessionId, Endpoint)->
     SendEmailMessage=lists:append(["<sendEmail xmlns=\"urn:partner.soap.sforce.com\">", get_xml_for_messages(Messages), "</sendEmail>"]),
     Results=send_sforce_soap_message(SendEmailMessage, SessionId, Endpoint),
-    case Results of
-	[{success,[],["true"]}]->
-	    ok;
-	_ -> Results
-    end.
+    F=fun(Result)->
+	      case Result of 
+		  [
+		   {errors,[],
+		    [{message,[],[ErrMessage]},
+		     {statusCode,[],[_]},
+		     _
+		    ]
+		   },
+		   {success,[],["false"]}] ->
+		      {err, ErrMessage};
+		  [{success,[],["true"]}] ->ok
+	      end
+      end,
+    lists:map(F, Results).
+
+
+
 
 
 get_xml_for_messages(Messages)->
     get_xml_for_messages(Messages, []).
 
 get_xml_for_messages([H|T], Xml)->
-    lists:append([Xml, "<messages xsi:type=\"SingleEmailMessage\">", get_xml_for_message(H), "</messages>"]);
+    NewXml=lists:append([Xml, "<messages xsi:type=\"SingleEmailMessage\">", get_xml_for_message(H), "</messages>"]),
+    get_xml_for_messages(T, NewXml);
    
 get_xml_for_messages([], Xml) ->
     Xml.
@@ -437,15 +451,46 @@ get_xml_for_messages([], Xml) ->
 get_xml_for_message(Message)->
     get_xml_for_message(Message, []).
 
+
+% this is pretty horrible...
+
 get_xml_for_message([H|T], Xml)->
-%    io:fwrite("message ~s ~n", H),
     {ParamName, ParamValue}=H,
-    get_xml_for_message(T, lists:append([Xml, "<", ParamName, ">", ParamValue, "</", ParamName, ">"]));
+    case ParamName of
+	bccAddress->get_xml_for_message(T, lists:append([Xml, "<bccAddresses>", ParamValue, "</bccAddresses>"]));
+	bccAddresses-> F = fun(Address) -> lists:append(["<bccAddresses>",Address,"</bccAddresses>"]) end, get_xml_for_message(T,lists:append([Xml,lists:flatten(lists:map(F,ParamValue))]));
+	ccAddress->get_xml_for_message(T, lists:append([Xml, "<ccAddresses>", ParamValue, "</ccAddresses>"]));
+	ccAddresses-> F = fun(Address) -> lists:append(["<ccAddresses>",Address,"</ccAddresses>"]) end, get_xml_for_message(T,lists:append([Xml,lists:flatten(lists:map(F,ParamValue))]));
+	documentAttachment->get_xml_for_message(T, lists:append([Xml, "<documentAttachments>", ParamValue, "</documentAttachments>"]));
+	documentAttachments->F = fun(Id) -> lists:append(["<documentAttachments>",Id,"</documentAttachments>"]) end, get_xml_for_message(T,lists:append([Xml,lists:flatten(lists:map(F,ParamValue))]));
+	toAddress->get_xml_for_message(T, lists:append([Xml, "<toAddresses>", ParamValue, "</toAddresses>"]));
+	toAddresses-> F = fun(Address) -> lists:append(["<toAddresses>",Address,"</toAddresses>"]) end, get_xml_for_message(T,lists:append([Xml,lists:flatten(lists:map(F,ParamValue))]));
+	bccSender-> get_xml_for_message(T, lists:append([Xml, "<", atom_to_list(ParamName), ">", atom_to_list(ParamValue), "</", atom_to_list(ParamName), ">"]));
+	saveAsActivity-> get_xml_for_message(T, lists:append([Xml, "<", atom_to_list(ParamName), ">", atom_to_list(ParamValue), "</", atom_to_list(ParamName), ">"]));
+	useSignature-> get_xml_for_message(T, lists:append([Xml, "<", atom_to_list(ParamName), ">", atom_to_list(ParamValue), "</", atom_to_list(ParamName), ">"]));
+	targetObjectId->get_xml_for_message(T, lists:append([Xml, "<targetObjectIds>", ParamValue, "</targetObjectIds>"]));
+	targetObjectIds->F = fun(Id) -> lists:append(["<targetObjectIds>",Id,"</targetObjectIds>"]) end, get_xml_for_message(T,lists:append([Xml,lists:flatten(lists:map(F,ParamValue))]));
+	whatId->get_xml_for_message(T, lists:append([Xml, "<whatIds>", ParamValue, "</whatIds>"]));
+	whatIds->F = fun(Id) -> lists:append(["<whatIds>",Id,"</whatIds>"]) end, get_xml_for_message(T,lists:append([Xml,lists:flatten(lists:map(F,ParamValue))]));
+	fileAttachment->get_xml_for_message(T, lists:append([Xml, "<fileAttachments>", get_xml_for_file_attachment(ParamValue), "</fileAttachments>"]));
+	fileAttachments->F = fun(FileAttachment) -> lists:append(["<fileAttachments>",get_xml_for_file_attachment(FileAttachment),"</fileAttachments>"]) end, get_xml_for_message(T,lists:append([Xml,lists:flatten(lists:map(F,ParamValue))]));
+	
+	_ -> get_xml_for_message(T, lists:append([Xml, "<", atom_to_list(ParamName), ">", ParamValue, "</", atom_to_list(ParamName), ">"]))
+    end;    
 get_xml_for_message([], Xml) ->
     Xml.
     
-    
-    
+get_xml_for_file_attachment(FileAttachmentList)->
+    get_xml_for_file_attachment(FileAttachmentList,[]).
+
+get_xml_for_file_attachment([H|T],Xml)->  
+    {ParamName, ParamValue}=H,
+    case ParamName of 
+	inline->get_xml_for_file_attachment(T, lists:append([Xml, "<", atom_to_list(ParamName), ">", atom_to_list(ParamValue), "</", atom_to_list(ParamName), ">"]));
+	 _-> get_xml_for_message(T, lists:append([Xml, "<", atom_to_list(ParamName), ">", ParamValue, "</", atom_to_list(ParamName), ">"]))
+    end;
+get_xml_for_file_attachment([], Xml) ->
+	    Xml.
     
 
 %send_mass_email(ToAddresses, CcAddresses, BccAddresses, BccSender, SenderDisplayName, Subject, PlainTextBody, HtmlBody, EmailPriority, ReplyTo, SaveAsActivity, UseSignature, TemplateId, Charset, DocumentAttachments, References, WhatId)->

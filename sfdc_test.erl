@@ -17,17 +17,27 @@ root_login()->
 send_single_email_test()->
     [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
     Messages=[[
-	       {"subject", "test1"},
-	       {"toAddresses", "igb@hccp.org"},
-	       {"plainTextBody","helo1"}
+	       {subject, "test1"},
+	       {toAddress, "ian.g.brown@gmail.com"},
+	       {plainTextBody,"helo1"}
 	      ],
 	      [
-	       {"subject", "test2"},
-	       {"toAddresses", "igb@hccp.org"},
-	       {"plainTextBody","helo2"}
+	       {subject, "test2"},
+	       {toAddress, "x spam@hccp.org"},
+	       {plainTextBody,"helo2"}
+	      ],
+	      [
+	       {subject, "test2"},
+	       {toAddress, "y spam@hccp.org"},
+	       {plainTextBody,"helo2"}
+	      ],
+	      [
+	       {subject, "test1"},
+	       {toAddresses, ["igb@hccp.org", "spam@hccp.org"]},
+	       {plainTextBody,"helo3"}
 	      ]
 	     ],
-    1=sfdc:send_single_email(Messages, SessionId, Endpoint).
+    [ok, {err, _}, {err, _}, ok]=sfdc:send_email(Messages, SessionId, Endpoint).
     
 
 merge_test()->
