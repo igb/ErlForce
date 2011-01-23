@@ -32,10 +32,12 @@ empty_recycle_bin
 undelete
 retrieve
 get_updated
-
-Not currently supported:
-
 send_email
+
+
+
+
+
 
 
 Copyright (c) 2011, Ian Brown
