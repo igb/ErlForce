@@ -17,7 +17,7 @@ login (Username, Password, SecurityToken)->
 
 login (Username, Password, SecurityToken, Endpoint)->
     LoginXml=create_login_request(Username, lists:append([Password, SecurityToken])),
-     {ok, {{HttpVersion, ResponseCode, ResponseCodeDescription}, ResponseHeaders, ResponseBody}}=http:request(post, {Endpoint, [{"SOAPAction:", "\"\""}], "text/xml", LoginXml}, [],[]),
+     {ok, {{_, ResponseCode, _}, _, ResponseBody}}=http:request(post, {Endpoint, [{"SOAPAction:", "\"\""}], "text/xml", LoginXml}, [],[]),
     case(ResponseCode) of
 	200  -> io_lib:write_string(ResponseBody);
 	500 -> io_lib:write_string(ResponseBody)
@@ -175,7 +175,7 @@ get_create_results_from_soap_response(SoapResponse)->
     {_,_,[{result,_,CreateResponse}]}=BodyContent,
     case CreateResponse of
 	[{id,[],[ObjectId]},{success,[],["true"]}]->{ok,ObjectId};
-	[{errors,[],[Fields, {message,[], Message}|_]},{success,[],["false"]}]->{err,Message};
+	[{errors,[],[_, {message,[], Message}|_]},{success,[],["false"]}]->{err,Message};
 	_ ->{err, "unknown error has occurred"}
     end.
 
@@ -295,7 +295,7 @@ describe_layout(Type, RecordTypeIds,SessionId, Endpoint)->
 %OPERATION: upsert
 
 upsert(ExternalIdFieldName, Sobjects,SessionId, Endpoint)->
-    UpsertMessage=lists:append(["<upsert xmlns=\"urn:partner.soap.sforce.com\"><externalIDFieldName>", ExternalIdFieldName,"</externalIDFieldName>",get_xml_for_sobjects(Sobjects, []),"</upsert>"]),
+    UpsertMessage=lists:append(["<upsert xmlns=\"urn:partner.soap.sforce.com\"><externalIDFieldName>", ExternalIdFieldName,"</externalIDFieldName>",get_xml_for_sobjects(Sobjects),"</upsert>"]),
     Results=send_sforce_soap_message(UpsertMessage, SessionId, Endpoint),
     
     case Results of 
@@ -508,11 +508,11 @@ convert_lead(LeadId, ContactId, AccountId, OwnerId, OverWriteLeadSource, DoNotCr
 
     % really needs to be a better way to do this...
     case Results of 
-	[{accountId,_,ReturnedAccountId},
-	 {contactId,_,ReturnedContactId},
+	[{accountId,_,_},
+	 {contactId,_,_},
 	 {errors,_, Errors},
-	 {leadId,_,ReturnedLeadId},
-	 {opportunityId,_,ReturnedOpportunityId},
+	 {leadId,_,_},
+	 {opportunityId,_,_},
 	 {success,_,["false"]}] -> [{message,[],[ErrMessage]}|_]=Errors,
 				   {err, ErrMessage};
 	[{accountId,_,ReturnedAccountId},
@@ -642,7 +642,7 @@ get_xml_for_session_ids(SessionIds)->
     get_xml_for_session_ids(SessionIds, []).
 
 get_xml_for_session_ids([H|T], Xml)->
-    get_xml_for_session_ids(T, lists:append(["<sessionIds>", H, "</sessionIds>"]));
+    get_xml_for_session_ids(T, lists:append([Xml, "<sessionIds>", H, "</sessionIds>"]));
 get_xml_for_session_ids([], Xml) ->
     Xml.
     
