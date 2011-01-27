@@ -134,7 +134,7 @@ get_query_results_from_soap_response(SoapResponse)->
     {_,_,[{result,_,QueryResponse}]}=get_body_content(BodyXml),
     [{done,_,[IsDone]}, {queryLocator,_,QueryLocator}|TheRest]=QueryResponse,
     {SizeInt, SobjectRecords}=get_query_results_from_record_set(TheRest),
-    {IsDone, QueryLocator, SizeInt, SobjectRecords}.
+    {IsDone, lists:flatten(QueryLocator), SizeInt, SobjectRecords}.
 
 
 get_query_results_from_record_set(RecordSet)->
