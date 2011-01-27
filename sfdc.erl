@@ -145,6 +145,7 @@ get_query_results_from_record_set([H|T],Results)->
     case H of 
 	{records,_,_}->
 	    {records,[{'xsi:type',_}],Records}=H,
+	    %io:fwrite("~s", Records),
 	    RecordsSoFar=lists:append(Results, [convert_xml_to_sobject(Records, [])]),
 	    get_query_results_from_record_set(T,RecordsSoFar);
 	{size,_,_}->
@@ -692,9 +693,14 @@ get_xml_for_sobject([],Xml) ->
 
 
 convert_xml_to_sobject([H|T], Sobject)->
-    {Name,_,Values}=H,
-    MySobject=lists:append(Sobject,[{clean_prefix(atom_to_list(Name)), "string", get_value_from_sobject_xml(Values)}]),
-    convert_xml_to_sobject(T, MySobject);
+    
+    case H of 
+    {Name,_,Values}->
+	    MySobject=lists:append(Sobject,[{clean_prefix(atom_to_list(Name)), "string", get_value_from_sobject_xml(Values)}]),
+	    convert_xml_to_sobject(T, MySobject);
+	_-> lists:flatten([H,T])
+	    
+    end;	    
 convert_xml_to_sobject([], Sobject)->    
    Sobject. 
 
@@ -721,6 +727,8 @@ get_tuples_from_xml(XmlValue)->
 	0 ->[];	     
 	_ -> convert_xml_to_tuples(XmlValue,[])
     end.
+
+
 	    
 convert_xml_to_tuples(XmlValue)->
     convert_xml_to_tuples(XmlValue,[]).
