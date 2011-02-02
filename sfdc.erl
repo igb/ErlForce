@@ -57,10 +57,14 @@ create_session_header(SessionId)->
 
 
 update(SObject, SessionId, Endpoint)->
-    SessionHeader=create_session_header(SessionId),
-    UpdateBody=create_update(SObject),
-    UpdateSoapMessage=create_soap_envelope(create_soap_header(SessionHeader), create_soap_body(UpdateBody)),
-    send_soap_message(UpdateSoapMessage, Endpoint).
+     UpdateBody=create_update(SObject),
+    Result=send_sforce_soap_message(UpdateBody, SessionId, Endpoint),
+    case Result of
+	[{id,[],[Id]},{success,[],["true"]}]-> {ok, Id};
+	_->Result
+    end.
+    
+
 
 create_update(SObject)->
     lists:append(["<m:update xmlns:m=\"urn:partner.soap.sforce.com\" xmlns:sobj=\"urn:sobject.partner.soap.sforce.com\"><m:sObjects>", get_xml_for_sobject(SObject,[]), "</m:sObjects></m:update>"]).
@@ -805,10 +809,10 @@ get_fault(BodyXml)->
     {_,_,FaultChildElements}=FaultElement,
     [FaultCode, FaultString|Detail]=FaultChildElements,
     {faultcode,_,[FaultCodeValue]}=FaultCode,
-    {faultstring,_,[FaultMessage]}=FaultString,
+    {faultstring,_,FaultMessage}=FaultString,
 %%    io:fwrite("message ~s ~n", ["here..."]),
     case Detail of
-	[]->[{faultcode, FaultCodeValue},{faultstring, FaultMessage}];%,{detail,FaultDetail}]
+	[]->[{faultcode, FaultCodeValue},{faultstring, lists:flatten(FaultMessage)}];%,{detail,FaultDetail}]
 	{detail,_,[FaultDetail]} -> extract_fault_detail(FaultDetail);
 	[{detail,[],[FaultDetail]}] -> extract_fault_detail(FaultDetail)
     end.

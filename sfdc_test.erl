@@ -14,6 +14,11 @@ root_login()->
     LoginInfo.
 
 
+query_test()->
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
+    sfdc:soql_query("select Id, Username, LastName, FirstName, Name, CompanyName, Division, Department, Title from User", SessionId, Endpoint).
+    
+
 send_single_email_test()->
     [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
     Messages=[[
@@ -367,7 +372,24 @@ upsert_test()->
     3=length(UpdateResult),
     [{"created","false"},{"id",Id},{"success","true"}]=UpdateResult,
     2=length(delete_notes_functional_test()).
+
+
+update_test()->
+    [{sessionId,SessionId}, {serverUrl, Endpoint}]=login(),
+    Id="005A0000001KH08",
+    UpdateStatusSobject=[
+			 {"type", "string", "User"},
+			 {"Id", "string", Id},
+			 {"CurrentStatus", "string", "Helloa"}
+			],
+    BadUpdateStatusSobject=[
+			    {"sId", "string", "xxx"},
+			 {"CurrentStatus", "string", "Hello"}
+			],
     
+    {ok, _}=sfdc:update(UpdateStatusSobject, SessionId, Endpoint),
+     {err, Reason}=sfdc:update(BadUpdateStatusSobject, SessionId, Endpoint).
+
 get_updated_test()->
     [{sessionId,SessionId}, {serverUrl, Endpoint}]=root_login(),
     {{ids,_},{lastDateCovered, _}}=sfdc:get_updated("Candidate__c", {{2011,1,1},{0,0,0}}, erlang:localtime(),SessionId, Endpoint),
