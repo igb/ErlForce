@@ -229,7 +229,46 @@ get_server_timestamp(SessionId, Endpoint)->
 describe_sobject(Type,SessionId, Endpoint)-> 
     DescribeSobjectBody=lists:append(["<describeSObject xmlns=\"urn:partner.soap.sforce.com\">", "<sObjectType>", Type, "</sObjectType></describeSObject>"]),
     Response=send_sforce_soap_message(DescribeSobjectBody, SessionId, Endpoint),
-    get_value_from_sobject_xml(Response).
+    SobjectishRepresentation=get_value_from_sobject_xml(Response), %could just pull direct from XML, but it;s late and I'm lazy
+    convert_to_describe_response(SobjectishRepresentation).
+						  
+    
+
+convert_to_describe_response(SobjectValue)->
+    convert_to_describe_response(SobjectValue, []).
+
+convert_to_describe_response([H|T], Converted)->
+   {PropertyName,_,Value}=H,
+    case PropertyName of
+	"childRelationships"->{ChildRelationships, RemainingList}=extract_complex_metadata_from_describe_sobject([H|T], "childRelationships"),
+			      NewConverted=lists:flatten([Converted, {childRelationships, ChildRelationships}]),
+			      convert_to_describe_response(RemainingList, NewConverted);
+	"fields"->{Fields, RemainingList}=extract_complex_metadata_from_describe_sobject([H|T], "fields"),
+			      NewConverted=lists:flatten([Converted, {fields, Fields}]),
+			      convert_to_describe_response(RemainingList, NewConverted);
+	"recordTypeInfos"->{RecordTypeInfos, RemainingList}=extract_complex_metadata_from_describe_sobject([H|T], "recordTypeInfos"),
+			      NewConverted=lists:flatten([Converted, {recordTypeInfos, RecordTypeInfos}]),
+			      convert_to_describe_response(RemainingList, NewConverted);
+	_ ->NewConverted=lists:flatten([Converted, {list_to_atom(PropertyName), Value}]),convert_to_describe_response(T,NewConverted)
+    end;
+convert_to_describe_response([], Converted)->
+    Converted.
+
+    
+extract_complex_metadata_from_describe_sobject(List, FieldName)->
+    extract_complex_metadata_from_describe_sobject(List,[], FieldName).
+
+extract_complex_metadata_from_describe_sobject([H|T], ChildRelationships, FieldName)->    
+    {PropertyName,_,Value}=H,
+    case PropertyName of
+	FieldName->
+	    F=fun(ChildRelationship)->
+		      {RelationshipName,_,RelationShipValue}=ChildRelationship,
+		      {list_to_atom(RelationshipName), RelationShipValue}
+	      end,
+	    extract_complex_metadata_from_describe_sobject(T, lists:append([ChildRelationships, [lists:map(F, Value)]]), FieldName);
+	_ -> {ChildRelationships, [H|T]}
+    end.
 
 %OPERATION: describeSOBjects
 describe_sobjects(Types,SessionId, Endpoint)-> 
