@@ -840,7 +840,7 @@ is_soap(SimplifiedXml) ->
 
 
 send_soap_message(SoapMessage, Endpoint)->
-    {ok, {{_, _, _}, _, ResponseBody}}=httpc:request(post, {Endpoint, [{"SOAPAction:", "\"\""}], "text/xml", SoapMessage}, [],[]),
+    {ok, {{_, _, _}, _, ResponseBody}}=httpc:request(post, {Endpoint, [{"SOAPAction:", "\"\""}, {"User-Agent:","hccp.org-ErlForce-erlang/0.1"}], "text/xml", SoapMessage}, [],[]),
     ResponseBody.
 
 
