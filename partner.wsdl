@@ -2,10 +2,10 @@
 
 
 <!--
-Salesforce.com Partner Web Services API Version 20.0
-Generated on 2010-11-14 02:26:56 +0000.
+Salesforce.com Partner Web Services API Version 22.0
+Generated on 2011-07-28 23:13:49 +0000.
 
-Copyright 1999-2010 salesforce.com, inc.
+Copyright 1999-2011 salesforce.com, inc.
 All Rights Reserved
 -->
 
@@ -132,6 +132,7 @@ All Rights Reserved
                 <sequence>
                     <element name="accessibilityMode"          type="xsd:boolean"/>
                     <element name="currencySymbol"             type="xsd:string" nillable="true"/>
+                    <element name="orgAttachmentFileSizeLimit" type="xsd:int"/>
                     <element name="orgDefaultCurrencyIsoCode"  type="xsd:string" nillable="true"/>
                     <element name="orgDisallowHtmlAttachments" type="xsd:boolean"/>
                     <element name="orgHasPersonAccounts"       type="xsd:boolean"/>
@@ -140,6 +141,7 @@ All Rights Reserved
                     <element name="organizationName"           type="xsd:string"/>
                     <element name="profileId"                  type="tns:ID"/>
                     <element name="roleId"                     type="tns:ID" nillable="true"/>
+                    <element name="sessionSecondsValid"        type="xsd:int"/>
                     <element name="userDefaultCurrencyIsoCode" type="xsd:string" nillable="true"/>
                     <element name="userEmail"                  type="xsd:string"/>
                     <element name="userFullName"               type="xsd:string"/>
@@ -240,6 +242,7 @@ All Rights Reserved
                     <enumeration value="INVALID_CURRENCY_CONV_RATE"/>
                     <enumeration value="INVALID_CURRENCY_CORP_RATE"/>
                     <enumeration value="INVALID_CURRENCY_ISO"/>
+                    <enumeration value="INVALID_DATA_CATEGORY_GROUP_REFERENCE"/>
                     <enumeration value="INVALID_DATA_URI"/>
                     <enumeration value="INVALID_EMAIL_ADDRESS"/>
                     <enumeration value="INVALID_EMPTY_KEY_OWNER"/>
@@ -301,6 +304,7 @@ All Rights Reserved
                     <enumeration value="OPTED_OUT_OF_MASS_MAIL"/>
                     <enumeration value="OP_WITH_INVALID_USER_TYPE_EXCEPTION"/>
                     <enumeration value="PACKAGE_LICENSE_REQUIRED"/>
+                    <enumeration value="PORTAL_NO_ACCESS"/>
                     <enumeration value="PORTAL_USER_ALREADY_EXISTS_FOR_CONTACT"/>
                     <enumeration value="PRIVATE_CONTACT_ON_ASSET"/>
                     <enumeration value="RECORD_IN_USE_BY_WORKFLOW"/>
@@ -1577,6 +1581,8 @@ All Rights Reserved
 
 
 
+
+
         <element name="AllOrNoneHeader">
             <complexType>
                 <sequence>
@@ -1646,6 +1652,9 @@ All Rights Reserved
                     <enumeration value="CLIENT_NOT_ACCESSIBLE_FOR_USER"/>
                     <enumeration value="CLIENT_REQUIRE_UPDATE_FOR_USER"/>
                     <enumeration value="CUSTOM_METADATA_LIMIT_EXCEEDED"/>
+                    <enumeration value="DATACLOUD_API_CLIENT_EXCEPTION"/>
+                    <enumeration value="DATACLOUD_API_SERVER_EXCEPTION"/>
+                    <enumeration value="DATACLOUD_API_UNAVAILABLE"/>
                     <enumeration value="DUPLICATE_VALUE"/>
                     <enumeration value="EMAIL_BATCH_SIZE_LIMIT_EXCEEDED"/>
                     <enumeration value="EMAIL_TO_CASE_INVALID_ROUTING"/>
@@ -1686,6 +1695,8 @@ All Rights Reserved
                     <enumeration value="INVALID_SSO_GATEWAY_URL"/>
                     <enumeration value="INVALID_TYPE"/>
                     <enumeration value="INVALID_TYPE_FOR_OPERATION"/>
+                    <enumeration value="JIGSAW_IMPORT_LIMIT_EXCEEDED"/>
+                    <enumeration value="JIGSAW_REQUEST_NOT_SUPPORTED"/>
                     <enumeration value="JSON_PARSER_ERROR"/>
                     <enumeration value="LIMIT_EXCEEDED"/>
                     <enumeration value="LOGIN_CHALLENGE_ISSUED"/>
@@ -1712,6 +1723,9 @@ All Rights Reserved
                     <enumeration value="REQUEST_LIMIT_EXCEEDED"/>
                     <enumeration value="REQUEST_RUNNING_TOO_LONG"/>
                     <enumeration value="SERVER_UNAVAILABLE"/>
+                    <enumeration value="SOCIALCRM_FEEDSERVICE_API_CLIENT_EXCEPTION"/>
+                    <enumeration value="SOCIALCRM_FEEDSERVICE_API_SERVER_EXCEPTION"/>
+                    <enumeration value="SOCIALCRM_FEEDSERVICE_API_UNAVAILABLE"/>
                     <enumeration value="SSO_SERVICE_DOWN"/>
                     <enumeration value="TOO_MANY_APEX_REQUESTS"/>
                     <enumeration value="TRIAL_EXPIRED"/>
@@ -1733,6 +1747,9 @@ All Rights Reserved
                     <enumeration value="fns:CLIENT_NOT_ACCESSIBLE_FOR_USER"/>
                     <enumeration value="fns:CLIENT_REQUIRE_UPDATE_FOR_USER"/>
                     <enumeration value="fns:CUSTOM_METADATA_LIMIT_EXCEEDED"/>
+                    <enumeration value="fns:DATACLOUD_API_CLIENT_EXCEPTION"/>
+                    <enumeration value="fns:DATACLOUD_API_SERVER_EXCEPTION"/>
+                    <enumeration value="fns:DATACLOUD_API_UNAVAILABLE"/>
                     <enumeration value="fns:DUPLICATE_VALUE"/>
                     <enumeration value="fns:EMAIL_BATCH_SIZE_LIMIT_EXCEEDED"/>
                     <enumeration value="fns:EMAIL_TO_CASE_INVALID_ROUTING"/>
@@ -1773,6 +1790,8 @@ All Rights Reserved
                     <enumeration value="fns:INVALID_SSO_GATEWAY_URL"/>
                     <enumeration value="fns:INVALID_TYPE"/>
                     <enumeration value="fns:INVALID_TYPE_FOR_OPERATION"/>
+                    <enumeration value="fns:JIGSAW_IMPORT_LIMIT_EXCEEDED"/>
+                    <enumeration value="fns:JIGSAW_REQUEST_NOT_SUPPORTED"/>
                     <enumeration value="fns:JSON_PARSER_ERROR"/>
                     <enumeration value="fns:LIMIT_EXCEEDED"/>
                     <enumeration value="fns:LOGIN_CHALLENGE_ISSUED"/>
@@ -1799,6 +1818,9 @@ All Rights Reserved
                     <enumeration value="fns:REQUEST_LIMIT_EXCEEDED"/>
                     <enumeration value="fns:REQUEST_RUNNING_TOO_LONG"/>
                     <enumeration value="fns:SERVER_UNAVAILABLE"/>
+                    <enumeration value="fns:SOCIALCRM_FEEDSERVICE_API_CLIENT_EXCEPTION"/>
+                    <enumeration value="fns:SOCIALCRM_FEEDSERVICE_API_SERVER_EXCEPTION"/>
+                    <enumeration value="fns:SOCIALCRM_FEEDSERVICE_API_UNAVAILABLE"/>
                     <enumeration value="fns:SSO_SERVICE_DOWN"/>
                     <enumeration value="fns:TOO_MANY_APEX_REQUESTS"/>
                     <enumeration value="fns:TRIAL_EXPIRED"/>
@@ -1915,6 +1937,7 @@ All Rights Reserved
 
 
         <part element="tns:DisableFeedTrackingHeader"    name="DisableFeedTrackingHeader"/>
+
 
         <part element="tns:MruHeader"                    name="MruHeader"/>
         <part element="tns:EmailHeader"                  name="EmailHeader"/>
@@ -3134,7 +3157,7 @@ All Rights Reserved
     <service name="SforceService">
         <documentation>Sforce SOAP API</documentation>
         <port binding="tns:SoapBinding" name="Soap">
-            <soap:address location="https://login.salesforce.com/services/Soap/u/20.0"/>
+            <soap:address location="https://login.salesforce.com/services/Soap/u/22.0"/>
         </port>
     </service>
 </definitions>

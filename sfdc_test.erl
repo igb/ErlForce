@@ -6,11 +6,13 @@
 login()->
     application:start(inets),
     application:start(ssl),
+    LoginInfo=sfdc:login("eerla@force.hccp.org", "Erlang3000", "hcCdIlrTYc0QMQmsPPeYnYyU"),
     LoginInfo.
 
 root_login()->
     application:start(inets),
     application:start(ssl),
+        LoginInfo=sfdc:login("igb@force.hccp.org", "Pooja3000", "Ky0dRrsv8D46KVLsqY5dV1el"),
     LoginInfo.
 
 
@@ -134,8 +136,43 @@ integer_pad_test()->
     
 
 get_deleted_functional_test()->
+  
+    CandidateId="a06A0000007fDIG",
+    OwnerId="005A0000001KH08",
+   
+
     [{sessionId,SessionId}, {serverUrl, Endpoint}]=root_login(),
-    1=sfdc:get_deleted("Note",{{2010,11,10},{23,43,0}}, {{2010,12,3},{0,0,0}}, SessionId, Endpoint),
+    StartTime=sfdc:get_server_timestamp(SessionId, Endpoint),
+    Note=[ {"type", "string", "Note"},
+	  {"ParentId", "string", CandidateId},
+	  {"Title", "string", "This is a delete note."},
+	  {"Body", "string", "This is a deletion note content."},
+	  {"OwnerId", "string", OwnerId}
+	 ],
+    {ok,CreatedId}=sfdc:create(Note, SessionId, Endpoint),
+   
+    EndTime=sfdc:get_server_timestamp(SessionId, Endpoint),
+    {{Year, Month, Day}, TimeComponent}=EndTime,
+    NewYear = Year + 1,
+
+[{deletedRecords,[],
+               [{deletedDate,[],_},
+                {id,[],_}]},
+           {earliestDateAvailable,[],_},
+           {latestDateCovered,[],_}]=[{deletedRecords,[],
+               [{deletedDate,[],["2011-08-01T19:34:46.000X"]},
+                {id,[],["002G000000C7hfYIAR"]}]},
+           {earliestDateAvailable,[],["2011-01-28T17:18:00.000X"]},
+           {latestDateCovered,[],["2011-08-01T19:34:00.000X"]}],
+
+     [{deletedRecords,[],
+               [{deletedDate,[],_},
+                {id,[],_}]},
+           {earliestDateAvailable,[],_},
+           {latestDateCovered,[],_}]=sfdc:get_deleted("Note",StartTime, {{NewYear, Month, Day}, TimeComponent}, SessionId, Endpoint),
+    
+    
+    
     sfdc:logout(SessionId, Endpoint).
 
 setup_initial_objects(Count, SessionId, Endpoint)->
