@@ -1,0 +1,8 @@
+{application, erlforce, [
+  {description, "Erlang client for Salesforce Partner API"},
+  {vsn, "2"},
+  {modules, [erlforce]},
+  {registered, []},
+  { applications, [kernel,stdlib] },
+  { env, [] }
+]}.
