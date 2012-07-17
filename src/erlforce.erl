@@ -22,7 +22,7 @@ login (Username, Password, SecurityToken)->
 
 login (Username, Password, SecurityToken, Endpoint)->
     LoginXml=create_login_request(Username, lists:append([Password, SecurityToken])),
-     {ok, {{_, ResponseCode, _}, _, ResponseBody}}=httpc:request(post, {Endpoint, [{"SOAPAction:", "\"\""}], "text/xml", LoginXml}, [],[]),
+     {ok, {{_, ResponseCode, _}, _, ResponseBody}}=http:request(post, {Endpoint, [{"SOAPAction:", "\"\""}], "text/xml", LoginXml}, [],[]),
     case(ResponseCode) of
 	200  -> io_lib:write_string(ResponseBody);
 	500 -> io_lib:write_string(ResponseBody)
@@ -884,7 +884,7 @@ is_soap(SimplifiedXml) ->
 
 
 send_soap_message(SoapMessage, Endpoint)->
-    {ok, {{_, _, _}, _, ResponseBody}}=httpc:request(post, {Endpoint, [{"SOAPAction:", "\"\""}, {"User-Agent:","hccp.org-ErlForce-erlang/0.1"}], "text/xml", SoapMessage}, [],[]),
+    {ok, {{_, _, _}, _, ResponseBody}}=http:request(post, {Endpoint, [{"SOAPAction:", "\"\""}, {"User-Agent:","hccp.org-ErlForce-erlang/0.1"}], "text/xml", SoapMessage}, [],[]),
     ResponseBody.
 
 
