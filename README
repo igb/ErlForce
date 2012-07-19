@@ -1,5 +1,7 @@
 Unofficial, unsupported Salesforce.com Library/API implemented in Erlang and written by Ian Brown (igb@hccp.org).
 
+(see the R13B03 branch if you need to support earlier versions of Erlang VM)
+
 Supported operations:
 
 login
